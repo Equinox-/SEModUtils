@@ -3,11 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using ProcBuild.Utils.Noise.VRage;
+using Equinox.Utils.Noise.VRage;
 using VRage;
 using VRageMath;
 
-namespace ProcBuild.Utils.Noise
+namespace Equinox.Utils.Noise
 {
     public class MyOctreeNoise
     {
@@ -18,13 +18,13 @@ namespace ProcBuild.Utils.Noise
         private readonly int m_depth;
         private readonly double m_cubeSideMax;
 
-        public MyOctreeNoise(long seed, double cubeSideMax, double cubeSideMin)
+        public MyOctreeNoise(long seed, double cubeSideMax, double cubeSideMin, IMyModule densityNoise)
         {
             // cubeSideMin * (2^depth) == cubeSideMax
             m_depth = (int)Math.Ceiling(Math.Log(cubeSideMax / cubeSideMin) / Math.Log(2)) + 1;
             var seedLow = (int)(seed >> 0);
             var seedHigh = (int)(seed >> 32);
-            m_densityNoise = new MyCompositeNoise(m_depth, (float)(1 / cubeSideMax), seedLow);
+            m_densityNoise = densityNoise ?? new MyCompositeNoise(m_depth, (float)(1 / cubeSideMax), seedLow);
             var rng = new Random(seedHigh);
             m_placementNoise = new IMyModule[3];
             m_warpNoise = new IMyModule[3];
@@ -37,14 +37,13 @@ namespace ProcBuild.Utils.Noise
             m_cubeSideMax = cubeSideMax;
         }
 
-        public IEnumerable<MyTuple<Vector4I, Vector3D>> TryGetSpawnIn(BoundingSphereD area)
+        public IEnumerable<MyTuple<Vector4I, Vector3D>> TryGetSpawnIn(BoundingBoxD aabb, Predicate<BoundingBoxD> test = null)
         {
-            var aabb = BoundingBoxD.CreateFromSphere(area);
             var rootCellsMin = Vector3I.Floor(aabb.Min / m_cubeSideMax);
             var rootCellsMax = Vector3I.Floor(aabb.Max / m_cubeSideMax);
 
             for (var rootCells = new Vector3I_RangeIterator(ref rootCellsMin, ref rootCellsMax); rootCells.IsValid(); rootCells.MoveNext())
-                foreach (var k in GetSpawnsIn(new Vector4I(rootCells.Current, 0), area))
+                foreach (var k in GetSpawnsIn(new Vector4I(rootCells.Current, 0), aabb, test))
                     yield return k;
         }
 
@@ -54,12 +53,14 @@ namespace ProcBuild.Utils.Noise
             return MyMath.Clamp(nn * Math.Abs(nn), -1, 1);
         }
 
-        private IEnumerable<MyTuple<Vector4I, Vector3D>> GetSpawnsIn(Vector4I cell, BoundingSphereD area)
+        private IEnumerable<MyTuple<Vector4I, Vector3D>> GetSpawnsIn(Vector4I cell, BoundingBoxD aabbGlobal, Predicate<BoundingBoxD> test)
         {
             var cellPos = new Vector3I(cell.X, cell.Y, cell.Z);
             var cellSize = m_cubeSideMax / (1 << cell.W);
             var aabb = new BoundingBoxD(cellPos * cellSize, (cellPos + 1) * cellSize);
-            if (!area.Intersects(aabb))
+            if (!aabbGlobal.Intersects(aabb))
+                yield break;
+            if (test != null && !test.Invoke(aabb))
                 yield break;
 
             var densityNoise = m_densityNoise.GetValue(aabb.Center) * m_depth;

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using ProcBuild.Library;
 using VRage;
 
 namespace ProcBuild.Utils

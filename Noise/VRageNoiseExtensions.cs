@@ -1,7 +1,7 @@
-﻿using ProcBuild.Utils.Noise.VRage;
+﻿using Equinox.Utils.Noise.VRage;
 using VRageMath;
 
-namespace ProcBuild.Utils.Noise
+namespace Equinox.Utils.Noise
 {
     public static class VRageNoiseExtensions
     {
