@@ -1,8 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Equinox.Utils.Noise.VRage;
 using VRage;
 using VRageMath;
@@ -37,7 +34,29 @@ namespace Equinox.Utils.Noise
             m_cubeSideMax = cubeSideMax;
         }
 
-        public IEnumerable<MyTuple<Vector4I, Vector3D>> TryGetSpawnIn(BoundingBoxD aabb, Predicate<BoundingBoxD> test = null)
+        public Vector4I GetOctreeNodeAt(Vector3D pos)
+        {
+            var rootCell = new Vector4I(Vector3I.Floor(pos / m_cubeSideMax), 0);
+
+            var cell = rootCell;
+            while (true)
+            {
+                var aabb = GetNodeAABB(cell);
+                var densityNoise = m_densityNoise.GetValue(aabb.Center) * m_depth;
+                var depthDensity = (int)MyMath.Clamp((float)Math.Floor(densityNoise), 0, m_depth - 1);
+                if (depthDensity <= cell.W)
+                    return cell;
+                else
+                {
+                    var nx = (cell.X << 1) + (aabb.Center.X > pos.X ? 1 : 0);
+                    var ny = (cell.Y << 1) + (aabb.Center.Y > pos.Y ? 1 : 0);
+                    var nz = (cell.Z << 1) + (aabb.Center.Z > pos.Z ? 1 : 0);
+                    cell = new Vector4I(nx, ny, nz, cell.W + 1);
+                }
+            }
+        }
+
+        public IEnumerable<MyTuple<Vector4I, Vector4D>> TryGetSpawnIn(BoundingBoxD aabb, Func<BoundingBoxD, bool> test = null)
         {
             var rootCellsMin = Vector3I.Floor(aabb.Min / m_cubeSideMax);
             var rootCellsMax = Vector3I.Floor(aabb.Max / m_cubeSideMax);
@@ -53,11 +72,16 @@ namespace Equinox.Utils.Noise
             return MyMath.Clamp(nn * Math.Abs(nn), -1, 1);
         }
 
-        private IEnumerable<MyTuple<Vector4I, Vector3D>> GetSpawnsIn(Vector4I cell, BoundingBoxD aabbGlobal, Predicate<BoundingBoxD> test)
+        public BoundingBoxD GetNodeAABB(Vector4I cell)
         {
             var cellPos = new Vector3I(cell.X, cell.Y, cell.Z);
             var cellSize = m_cubeSideMax / (1 << cell.W);
-            var aabb = new BoundingBoxD(cellPos * cellSize, (cellPos + 1) * cellSize);
+            return new BoundingBoxD(cellPos * cellSize, (cellPos + 1) * cellSize);
+        }
+
+        private IEnumerable<MyTuple<Vector4I, Vector4D>> GetSpawnsIn(Vector4I cell, BoundingBoxD aabbGlobal, Func<BoundingBoxD, bool> test)
+        {
+            var aabb = GetNodeAABB(cell);
             if (!aabbGlobal.Intersects(aabb))
                 yield break;
             if (test != null && !test.Invoke(aabb))
@@ -86,17 +110,17 @@ namespace Equinox.Utils.Noise
                 var localPos = Vector3.Clamp((warp * 0.25f) + (placement * 0.75f), Vector3.MinusOne, Vector3.One);
 
                 var worldPos = aabb.Center + aabb.HalfExtents * localPos;
-                yield return MyTuple.Create(cell, worldPos);
+                yield return MyTuple.Create(cell, new Vector4D(worldPos, densityNoise / m_depth));
             }
             else
             {
                 // Subdivide.
                 for (var i = 0; i < 8; i++)
                 {
-                    var x = (cellPos.X << 1) | (i & 1);
-                    var y = (cellPos.Y << 1) | ((i >> 1) & 1);
-                    var z = (cellPos.Z << 1) | ((i >> 2) & 1);
-                    foreach (var k in GetSpawnsIn(new Vector4I(x, y, z, cell.W + 1), area))
+                    var x = (cell.X << 1) | (i & 1);
+                    var y = (cell.Y << 1) | ((i >> 1) & 1);
+                    var z = (cell.Z << 1) | ((i >> 2) & 1);
+                    foreach (var k in GetSpawnsIn(new Vector4I(x, y, z, cell.W + 1), aabbGlobal, test))
                         yield return k;
                 }
             }

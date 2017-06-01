@@ -1,13 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Sandbox.Definitions;
 using VRage;
 using VRage.Game;
 
-namespace ProcBuild.Utils
+namespace Equinox.Utils
 {
     public class MyBlueprintIndex
     {

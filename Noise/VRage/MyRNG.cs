@@ -1,6 +1,4 @@
 ﻿
-using System.Diagnostics;
-
 namespace Equinox.Utils.Noise.VRage
 {
     //!! TODO AR : measure times & values againts System.Random

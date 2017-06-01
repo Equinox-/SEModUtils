@@ -1,16 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Sandbox.Common.ObjectBuilders.Definitions;
+﻿using Equinox.Utils.Cache;
 using Sandbox.Definitions;
 using Sandbox.Game;
 using VRage;
-using VRage.Collections;
-using VRage.Utils;
 
-namespace ProcBuild.Utils
+namespace Equinox.Utils
 {
     public class PowerUtilities
     {

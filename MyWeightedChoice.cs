@@ -1,11 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using VRageMath;
 
-namespace ProcBuild.Utils
+namespace Equinox.Utils
 {
     public class MyWeightedChoice<TK>
     {
@@ -36,7 +33,7 @@ namespace ProcBuild.Utils
             var list = new List<KeyValuePair<TK, float>>(values);
             list.Sort((a, b) => a.Value.CompareTo(b.Value));
             // swap equal weight items randomly.
-            var j = 0L;
+            var j = 1L;
             for (var i = 0; i < list.Count - 1; i++)
             {
                 if (!(Math.Abs(list[i].Value - list[i + 1].Value) < float.Epsilon)) continue;
@@ -46,7 +43,7 @@ namespace ProcBuild.Utils
                     list[i] = list[i + 1];
                     list[i + 1] = tmp;
                 }
-                j = (j * 2) + 2;
+                j = (j << 1) | (j >> 63);
             }
 
             // (0.5)^x == quantileFifty

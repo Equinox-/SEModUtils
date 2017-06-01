@@ -1,26 +1,22 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.Generic;
+using Equinox.Utils.Cache;
 using Sandbox.Definitions;
 using Sandbox.Game.Entities;
 using Sandbox.Game.EntityComponents;
-using VRage.Collections;
 using VRage.Game;
-using VRage.Game.Components;
-using VRage.Game.ObjectBuilders.ComponentSystem;
-using VRage.Utils;
 
-namespace ProcBuild.Utils
+namespace Equinox.Utils
 {
     public static class MyInventoryUtility
     {
         public static double GetInventoryVolume(MyDefinitionId id)
         {
-            return CacheInvVolume.GetOrCreate(id, GetInventoryVolumeInternal);
+            double result;
+            if (CacheInvVolume.TryGetValue(id, out result)) return result;
+            return CacheInvVolume[id] = GetInventoryVolumeInternal(id);
         }
-        private static readonly MyLRUCache<MyDefinitionId, double> CacheInvVolume = new MyLRUCache<MyDefinitionId, double>(128);
+
+        private static readonly Dictionary<MyDefinitionId, double> CacheInvVolume = new Dictionary<MyDefinitionId, double>(128);
 
         private static double GetInventoryVolumeInternal(MyDefinitionId id)
         {
@@ -29,7 +25,7 @@ namespace ProcBuild.Utils
                 foreach (var component in container.DefaultComponents)
                 {
                     MyComponentDefinitionBase componentDefinition = null;
-                    if (!MyComponentContainerExtension.TryGetComponentDefinition(component.BuilderType, 
+                    if (!MyComponentContainerExtension.TryGetComponentDefinition(component.BuilderType,
                         component.SubtypeId ?? id.SubtypeId, out componentDefinition)) continue;
                     var invDef = componentDefinition as MyInventoryComponentDefinition;
                     if (invDef != null)

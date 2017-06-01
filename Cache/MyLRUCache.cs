@@ -2,9 +2,9 @@
 using System.Collections.Generic;
 using VRage;
 
-namespace ProcBuild.Utils
+namespace Equinox.Utils.Cache
 {
-    public class MyLRUCache<TK, TV>
+    public class MyLRUCache<TK, TV> : MyCacheBase<TK,TV>
     {
         private struct CacheItem
         {
@@ -24,10 +24,8 @@ namespace ProcBuild.Utils
             this.capacity = capacity;
             this.m_lock = new FastResourceLock();
         }
-
-        public delegate TV CreateDelegate(TK key);
-
-        public TV GetOrCreate(TK key, CreateDelegate del)
+        
+        public override TV GetOrCreate(TK key, CreateDelegate del)
         {
             using (m_lock.AcquireExclusiveUsing())
             {
@@ -47,7 +45,7 @@ namespace ProcBuild.Utils
             }
         }
 
-        public void Clear()
+        public override void Clear()
         {
             using (m_lock.AcquireExclusiveUsing())
             {
@@ -56,13 +54,13 @@ namespace ProcBuild.Utils
             }
         }
 
-        public TV Store(TK key, TV value)
+        public override TV Store(TK key, TV value)
         {
             using (m_lock.AcquireExclusiveUsing())
             {
                 var node = new LinkedListNode<CacheItem>(new CacheItem() {key = key, value = value});
                 lruCache.AddLast(node);
-                cache.Add(key, node);
+                cache[key] = node;
                 return node.Value.value;
             }
         }
@@ -81,7 +79,7 @@ namespace ProcBuild.Utils
             return false;
         }
 
-        public bool TryGet(TK key, out TV value)
+        public override bool TryGet(TK key, out TV value)
         {
             using (m_lock.AcquireExclusiveUsing())
                 return TryGetUnsafe(key, out value);

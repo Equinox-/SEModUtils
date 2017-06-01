@@ -3,7 +3,7 @@ using Sandbox.Definitions;
 using VRage.Game;
 using VRageMath;
 
-namespace ProcBuild.Utils
+namespace Equinox.Utils
 {
     public class BlockTransformations
     {

@@ -1,5 +1,4 @@
 ﻿using System;
-using VRage.Library.Utils;
 
 namespace Equinox.Utils.Noise.VRage
 {

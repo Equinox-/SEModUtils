@@ -5,7 +5,7 @@ using Sandbox.ModAPI;
 using VRage;
 using VRage.Utils;
 
-namespace ProcBuild.Utils
+namespace Equinox.Utils
 {
     internal class Logging
     {

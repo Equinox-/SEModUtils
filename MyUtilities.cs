@@ -1,44 +1,22 @@
 ﻿using System;
 using System.Collections.Generic;
+using Equinox.Utils.Cache;
+using Sandbox.Game.Entities;
+using Sandbox.ModAPI;
 using VRage;
+using VRage.Game;
 using VRage.ModAPI;
+using VRage.ObjectBuilders;
 using VRage.Utils;
 using VRageMath;
 
-namespace ProcBuild.Utils
+namespace Equinox.Utils
 {
     public static class MyUtilities
     {
         // We average integral sin(pi*x) from 0 to 1.
         public const float SunMovementMultiplier = (float)(2 / Math.PI);
-
-        public static long NextLong(this Random random)
-        {
-            return ((long)random.Next()) << 32 | (long)random.Next();
-        }
-
-        public static double NextNormal(this Random random, double mu = 0, double sigma = 1)
-        {
-            // Box-Muller Transform
-            double u1 = 0, u2 = 0;
-            while (u1 <= double.Epsilon)
-            {
-                u1 = random.NextDouble();
-                u2 = random.NextDouble();
-            }
-
-            // Deterministic, but still uniformly represent the two axes
-            if (u1 < 0.5D)
-                return mu + sigma * Math.Sqrt(-2 * Math.Log(u1)) * Math.Cos(2 * Math.PI * u2);
-            else
-                return mu + sigma * Math.Sqrt(-2 * Math.Log(u1)) * Math.Sin(2 * Math.PI * u2);
-        }
-
-        public static double NextExponential(this Random random, double lambda = 1)
-        {
-            return lambda * Math.Pow(-Math.Log(random.NextDouble()), lambda);
-        }
-
+        
         public static void AddOrApply<TK, TV>(this Dictionary<TK, TV> dict, TK key, TV val, Func<TV, TV, TV> biFunc)
         {
             TV valCurrent;
@@ -222,7 +200,29 @@ namespace ProcBuild.Utils
             return result;
         }
 
+        public static void ScorePlanetFlatness(Vector3D startPos, double radius, out double score, out Vector3D groundPos)
+        {
+            var planet = MyGamePruningStructure.GetClosestPlanet(startPos);
+            groundPos = planet.GetClosestSurfacePointGlobal(ref startPos);
+            var center = planet.PositionComp.WorldVolume.Center;
 
+            var normal = groundPos - center;
+            normal.Normalize();
+            // Sample two points _radius_ away perp. to normal
+            var otherDir = Vector3D.CalculatePerpendicularVector(normal);
+            otherDir.Normalize();
+            var otherWorld = groundPos + otherDir * radius;
+            var other1Surf = planet.GetClosestSurfacePointGlobal(ref otherWorld);
+
+            Vector3D.Cross(ref normal, ref otherDir, out otherDir);
+            otherDir.Normalize();
+            otherWorld = groundPos + otherDir * radius;
+            var other2Surf = planet.GetClosestSurfacePointGlobal(ref otherWorld);
+
+            var surfNorm = Vector3D.Cross(other2Surf - groundPos, other1Surf - groundPos);
+            surfNorm.Normalize();
+            score = Math.Abs(Vector3D.Dot(surfNorm, normal));
+        }
 
         public static Color NextColor => colors[colorID = (colorID + 1) % colors.Length];
 
