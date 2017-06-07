@@ -17,9 +17,9 @@ namespace Equinox.Utils.Cache
         private readonly int capacity;
         private readonly FastResourceLock m_lock;
 
-        public MyLRUCache(int capacity)
+        public MyLRUCache(int capacity, IEqualityComparer<TK> comparer)
         {
-            this.cache = new Dictionary<TK, LinkedListNode<CacheItem>>(capacity > 1024 ? (int)Math.Sqrt(capacity) : capacity);
+            this.cache = new Dictionary<TK, LinkedListNode<CacheItem>>(capacity > 1024 ? (int)Math.Sqrt(capacity) : capacity, comparer ?? EqualityComparer<TK>.Default);
             this.lruCache = new LinkedList<CacheItem>();
             this.capacity = capacity;
             this.m_lock = new FastResourceLock();

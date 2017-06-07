@@ -4,7 +4,10 @@ using Equinox.Utils.Cache;
 using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
 using VRage;
+using VRage.Collections;
 using VRage.Game;
+using VRage.Game.ModAPI;
+using VRage.Generics;
 using VRage.ModAPI;
 using VRage.ObjectBuilders;
 using VRage.Utils;
@@ -16,7 +19,44 @@ namespace Equinox.Utils
     {
         // We average integral sin(pi*x) from 0 to 1.
         public const float SunMovementMultiplier = (float)(2 / Math.PI);
-        
+
+        // Can draw/control stuff
+        public static bool IsController => MyAPIGateway.Session.Player != null;
+        // Has the final say.
+        public static bool IsDecisionMaker => MyAPIGateway.Multiplayer == null || !MyAPIGateway.Multiplayer.MultiplayerActive || MyAPIGateway.Multiplayer.IsServer || MyAPIGateway.Utilities.IsDedicated;
+
+        private static readonly MyConcurrentPool<List<IMyPlayer>> PlayerListPool = new MyConcurrentPool<List<IMyPlayer>>(2);
+        public static IMyPlayer GetPlayerById(this IMyPlayerCollection collection, long id)
+        {
+            var list = PlayerListPool.Get();
+            try
+            {
+                list.Clear();
+                collection.GetPlayers(list, (x) => x.IdentityId == id);
+                return list.Count > 0 ? list[0] : null;
+            }
+            finally
+            {
+                list.Clear();
+                PlayerListPool.Return(list);
+            }
+        }
+        public static IMyPlayer GetPlayerBySteamId(this IMyPlayerCollection collection, ulong steamId)
+        {
+            var list = PlayerListPool.Get();
+            try
+            {
+                list.Clear();
+                collection.GetPlayers(list, (x) => x.SteamUserId == steamId);
+                return list.Count > 0 ? list[0] : null;
+            }
+            finally
+            {
+                list.Clear();
+                PlayerListPool.Return(list);
+            }
+        }
+
         public static void AddOrApply<TK, TV>(this Dictionary<TK, TV> dict, TK key, TV val, Func<TV, TV, TV> biFunc)
         {
             TV valCurrent;
@@ -49,6 +89,15 @@ namespace Equinox.Utils
         {
             if (value != null)
                 list.Add(value);
+        }
+
+        public static void SetNeedsWorldMatrix(this IMyEntity e, bool needs)
+        {
+            var old = e.NeedsWorldMatrix;
+            if (needs == old) return;
+            e.NeedsWorldMatrix = needs;
+            if (!needs) return;
+            e.Hierarchy?.Parent?.Entity?.SetNeedsWorldMatrix(true);
         }
 
         public static bool Equals(this MatrixI mat, MatrixI other)
@@ -86,51 +135,13 @@ namespace Equinox.Utils
             return s.StartsWith(arg, true, null);
         }
 
-        public static bool IsValidEquinox(this double f)
-        {
-            return !double.IsNaN(f) && !double.IsInfinity(f);
-        }
-
         public static MatrixD AsMatrixD(this MyPositionAndOrientation posAndOrient)
         {
-            //GR: Check for NaN values and remove them (otherwise there will be problems wilth clusters)
-            if (posAndOrient.Position.x.IsValidEquinox() == false)
-            {
-                posAndOrient.Position.x = 0.0f;
-            }
-            if (posAndOrient.Position.y.IsValidEquinox() == false)
-            {
-                posAndOrient.Position.y = 0.0f;
-            }
-            if (posAndOrient.Position.z.IsValidEquinox() == false)
-            {
-                posAndOrient.Position.z = 0.0f;
-            }
-
             var matrix = MatrixD.CreateWorld(posAndOrient.Position, posAndOrient.Forward, posAndOrient.Up);
-            MyUtils.AssertIsValid(matrix);
-
-            var offset = 10.0f;
-            // MZ: hotfixed crashing game
-            var bbWorld = MyAPIGatewayShortcuts.GetWorldBoundaries != null ? MyAPIGatewayShortcuts.GetWorldBoundaries() : default(BoundingBoxD);
-            // clam only if AABB is valid
-            if (bbWorld.Max.X > bbWorld.Min.X && bbWorld.Max.Y > bbWorld.Min.Y && bbWorld.Max.Z > bbWorld.Min.Z)
-            {
-                var resPosition = matrix.Translation;
-                if (resPosition.X > bbWorld.Max.X)
-                    resPosition.X = bbWorld.Max.X - offset;
-                else if (resPosition.X < bbWorld.Min.X)
-                    resPosition.X = bbWorld.Min.X + offset;
-                if (resPosition.Y > bbWorld.Max.Y)
-                    resPosition.Y = bbWorld.Max.Y - offset;
-                else if (resPosition.Y < bbWorld.Min.Y)
-                    resPosition.Y = bbWorld.Min.Y + offset;
-                if (resPosition.Z > bbWorld.Max.Z)
-                    resPosition.Z = bbWorld.Max.Z - offset;
-                else if (resPosition.Z < bbWorld.Min.Z)
-                    resPosition.Z = bbWorld.Min.Z + offset;
-                matrix.Translation = resPosition;
-            }
+            const float offset = 100.0f;
+            if (MyAPIGatewayShortcuts.GetWorldBoundaries == null) return matrix;
+            var bound = MyAPIGatewayShortcuts.GetWorldBoundaries();
+            matrix.Translation = Vector3D.Min(Vector3D.Max(matrix.Translation, bound.Min + offset), bound.Max - offset);
             return matrix;
         }
 
@@ -193,10 +204,7 @@ namespace Equinox.Utils
         internal static MatrixI Multiply(MatrixI right, MatrixI left)
         {
             MatrixI result;
-            result.Backward = left.GetDirection(right.Backward);
-            result.Right = left.GetDirection(right.Right);
-            result.Up = left.GetDirection(right.Up);
-            result.Translation = Vector3I.Transform(right.Translation, left);
+            MatrixI.Multiply(ref left, ref right, out result);
             return result;
         }
 
@@ -222,6 +230,16 @@ namespace Equinox.Utils
             var surfNorm = Vector3D.Cross(other2Surf - groundPos, other1Surf - groundPos);
             surfNorm.Normalize();
             score = Math.Abs(Vector3D.Dot(surfNorm, normal));
+        }
+
+        public static ulong Hash64(this string str)
+        {
+            ulong hash = 5381;
+            // djb2 (http://www.cse.yorku.ca/~oz/hash.html)
+            // ReSharper disable once LoopCanBeConvertedToQuery
+            foreach (var t in str)
+                hash = ((hash << 5) + hash) + t;
+            return hash;
         }
 
         public static Color NextColor => colors[colorID = (colorID + 1) % colors.Length];

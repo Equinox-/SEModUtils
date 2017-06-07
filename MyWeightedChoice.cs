@@ -6,13 +6,23 @@ namespace Equinox.Utils
 {
     public class MyWeightedChoice<TK>
     {
-        private readonly Dictionary<TK, float> values = new Dictionary<TK, float>();
+        private readonly Dictionary<TK, float> m_values;
+
+        public void Clear()
+        {
+            m_values.Clear();
+        }
+
+        public MyWeightedChoice(IEqualityComparer<TK> compare = null)
+        {
+            m_values = new Dictionary<TK, float>(compare ?? EqualityComparer<TK>.Default);
+        }
 
         public void Add(TK key, float weight)
         {
             float cv = 0;
-            values.TryGetValue(key, out cv);
-            values[key] = cv + weight;
+            m_values.TryGetValue(key, out cv);
+            m_values[key] = cv + weight;
         }
 
         public enum WeightedNormalization
@@ -30,14 +40,15 @@ namespace Equinox.Utils
         /// <returns></returns>
         public TK ChooseByQuantile(double normNoise, double quantileFifty)
         {
-            var list = new List<KeyValuePair<TK, float>>(values);
+            var list = new List<KeyValuePair<TK, float>>(m_values);
             list.Sort((a, b) => a.Value.CompareTo(b.Value));
             // swap equal weight items randomly.
             var j = 1L;
+            var rmask = (long)(normNoise * long.MaxValue);
             for (var i = 0; i < list.Count - 1; i++)
             {
                 if (!(Math.Abs(list[i].Value - list[i + 1].Value) < float.Epsilon)) continue;
-                if (((long)(normNoise * long.MaxValue) & j) != 0)
+                if ((rmask & j) != 0)
                 {
                     var tmp = list[i];
                     list[i] = list[i + 1];
@@ -52,11 +63,24 @@ namespace Equinox.Utils
             return list[(int)MyMath.Clamp((float)res * list.Count, 0, list.Count - 1)].Key;
         }
 
+        public TK ChooseBest()
+        {
+            var best = float.MinValue;
+            var bestVal = default(TK);
+            foreach (var kv in m_values)
+                if (kv.Value > best)
+                {
+                    best = kv.Value;
+                    bestVal = kv.Key;
+                }
+            return bestVal;
+        }
+
         public TK Choose(double normNoise, WeightedNormalization strat = WeightedNormalization.ShiftToZero)
         {
             var sum = 0.0;
             var min = double.MaxValue;
-            foreach (var weight in values.Values)
+            foreach (var weight in m_values.Values)
             {
                 switch (strat)
                 {
@@ -75,14 +99,14 @@ namespace Equinox.Utils
                 }
             }
             if (strat == WeightedNormalization.ShiftToZero)
-                sum -= min * values.Count;
+                sum -= min * m_values.Count;
 
             var evalNoise = normNoise * sum;
             var seenNoise = 0.0;
 
             var best = default(TK);
             var bestWeight = 0.0;
-            foreach (var entry in values)
+            foreach (var entry in m_values)
             {
                 var weight = entry.Value;
 
@@ -112,6 +136,6 @@ namespace Equinox.Utils
             return best;
         }
 
-        public int Count => values.Count;
+        public int Count => m_values.Count;
     }
 }

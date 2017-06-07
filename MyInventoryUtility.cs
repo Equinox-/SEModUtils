@@ -16,7 +16,7 @@ namespace Equinox.Utils
             return CacheInvVolume[id] = GetInventoryVolumeInternal(id);
         }
 
-        private static readonly Dictionary<MyDefinitionId, double> CacheInvVolume = new Dictionary<MyDefinitionId, double>(128);
+        private static readonly Dictionary<MyDefinitionId, double> CacheInvVolume = new Dictionary<MyDefinitionId, double>(128, MyDefinitionId.Comparer);
 
         private static double GetInventoryVolumeInternal(MyDefinitionId id)
         {

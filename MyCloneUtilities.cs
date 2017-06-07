@@ -17,7 +17,7 @@ namespace Equinox.Utils
 {
     public static class MyCloneUtilities
     {
-        private static readonly MyLRUCache<MyObjectBuilder_Base, string> SerializedObjectBuilderCache = new MyLRUCache<MyObjectBuilder_Base, string>(100);
+        private static readonly MyLRUCache<MyObjectBuilder_Base, string> SerializedObjectBuilderCache = new MyLRUCache<MyObjectBuilder_Base, string>(100, null);
 
         public static T CloneCached<T>(T src) where T : MyObjectBuilder_Base
         {

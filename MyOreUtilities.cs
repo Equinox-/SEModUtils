@@ -19,7 +19,7 @@ namespace Equinox.ProceduralWorld.Utils
         private static List<MyRarityInfo> m_rarityList = null;
         private static Dictionary<MyDefinitionId, MyRarityInfo> m_oreRarity = null;
 
-        private static readonly Dictionary<MyDefinitionId, double> m_avgOutputRatio = new Dictionary<MyDefinitionId, double>();
+        private static readonly Dictionary<MyDefinitionId, double> m_avgOutputRatio = new Dictionary<MyDefinitionId, double>(MyDefinitionId.Comparer);
         public static double GetOutputRatio(MyDefinitionId oreOrIngot)
         {
             double result;
@@ -28,7 +28,7 @@ namespace Equinox.ProceduralWorld.Utils
             if (oreOrIngot.TypeId == typeof(MyObjectBuilder_Ore))
                 return m_avgOutputRatio[oreOrIngot] = MyBlueprintIndex.Instance.GetAllConsuming(oreOrIngot).Select(x => x.Ingredients.Values.Sum(y => (double)y)).DefaultIfEmpty(1).Average();
             if (oreOrIngot.TypeId == typeof(MyObjectBuilder_Ingot))
-                return m_avgOutputRatio[oreOrIngot] = MyBlueprintIndex.Instance.GetAllProducing(oreOrIngot).Select(x => x.Ingredients.Values.Sum(y => (double) y)).DefaultIfEmpty(1).Average();
+                return m_avgOutputRatio[oreOrIngot] = MyBlueprintIndex.Instance.GetAllProducing(oreOrIngot, true).Select(x => x.Ingredients.Values.Sum(y => (double) y)).DefaultIfEmpty(1).Average();
             throw new ArgumentException("Can only evaluate the output ratio of ores and ingots");
         }
 
@@ -54,7 +54,7 @@ namespace Equinox.ProceduralWorld.Utils
                 }
                 // Sort in descending.
                 temp.Sort((a, b) => Math.Sign(b.OutputRatio - a.OutputRatio));
-                var dout = new Dictionary<MyDefinitionId, MyRarityInfo>();
+                var dout = new Dictionary<MyDefinitionId, MyRarityInfo>(MyDefinitionId.Comparer);
                 for (var i = 0; i < temp.Count; i++)
                 {
                     temp[i].Rarity = i / (float)(temp.Count - 1);

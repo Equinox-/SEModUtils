@@ -105,7 +105,7 @@ namespace Equinox.Utils
             // ignore MyShipWelderDefinition
         }
 
-        private static readonly MyLRUCache<MyCubeBlockDefinition, MyTuple<string, float>> maxPowerCache = new MyLRUCache<MyCubeBlockDefinition, MyTuple<string, float>>(128);
+        private static readonly MyLRUCache<MyCubeBlockDefinition, MyTuple<string, float>> maxPowerCache = new MyLRUCache<MyCubeBlockDefinition, MyTuple<string, float>>(128, null);
         public static MyTuple<string, float> MaxPowerConsumption(MyCubeBlockDefinition def)
         {
             return maxPowerCache.GetOrCreate(def, MaxPowerConsumptionInternal);

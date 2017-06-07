@@ -1,6 +1,6 @@
 ﻿namespace Equinox.Utils.Noise.VRage.Patterns
 {
-    public class MySphere : IMyModule
+    public class MySpherePattern : IMyModule
     {
         private double m_outerRadiusBlendingSqrDist;
 
@@ -34,7 +34,7 @@
             m_outerRadiusBlendingSqrDist = m_outerRadiusSqr - m_innerRadiusSqr;
         }
         
-        public MySphere(double innerRadius, double outerRadius)
+        public MySpherePattern(double innerRadius, double outerRadius)
         {
             InnerRadius = innerRadius;
             OuterRadius = outerRadius;

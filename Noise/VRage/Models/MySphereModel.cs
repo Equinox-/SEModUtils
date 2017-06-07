@@ -6,7 +6,7 @@ namespace Equinox.Utils.Noise.VRage.Models
     /// <summary>
     /// Maps the output of a module onto a sphere.
     /// </summary>
-    class MySphere : IMyModule
+    class MySphereModel : IMyModule
     {
         protected void LatLonToXYZ(double lat, double lon, out double x, out double y, out double z)
         {
@@ -21,7 +21,7 @@ namespace Equinox.Utils.Noise.VRage.Models
 
         public IMyModule Module { get; set; }
 
-        public MySphere(IMyModule module)
+        public MySphereModel(IMyModule module)
         {
             Module = module;
         }

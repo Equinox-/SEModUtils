@@ -1,13 +1,16 @@
 ﻿using System;
 using System.IO;
 using System.Text;
+using System.Threading;
+using Equinox.ProceduralWorld.Utils.Logging;
+using Equinox.Utils.Session;
 using Sandbox.ModAPI;
 using VRage;
 using VRage.Utils;
 
-namespace Equinox.Utils
+namespace Equinox.Utils.Logging
 {
-    internal class Logging
+    public class MyCustomLogger : MyLoggerBase
     {
         private readonly FastResourceLock m_lock, m_writeLock;
         private readonly StringBuilder m_cache;
@@ -17,10 +20,10 @@ namespace Equinox.Utils
         private int m_readyTicks;
 
         private const int WRITE_INTERVAL_TICKS = 30;
-        private static readonly TimeSpan WRITE_INTERVAL_TIME = new TimeSpan(
+        private static readonly TimeSpan WriteIntervalTime = new TimeSpan(
             0, 0, 1);
 
-        internal Logging(string file)
+        public MyCustomLogger(string file)
         {
             m_file = file;
             m_writer = null;
@@ -31,8 +34,15 @@ namespace Equinox.Utils
             m_lastWriteTime = DateTime.Now;
         }
 
-        public void OnUpdate()
+        public override void Attach()
         {
+            base.Attach();
+            MyLog.Default.WriteLineAndConsole("Starting logger for Equinox on (" + m_file + ")");
+        }
+
+        public override void UpdateAfterSimulation()
+        {
+            base.UpdateAfterSimulation();
             var requiresUpdate = false;
             try
             {
@@ -48,12 +58,13 @@ namespace Equinox.Utils
             else
                 m_readyTicks = 0;
             if (m_readyTicks <= WRITE_INTERVAL_TICKS) return;
-            Flush();
+            Save();
             m_readyTicks = 0;
         }
 
-        public void Flush()
+        public override void Save()
         {
+            base.Save();
             if (MyAPIGateway.Utilities != null)
                 MyAPIGateway.Parallel.StartBackground(() =>
                 {
@@ -67,8 +78,8 @@ namespace Equinox.Utils
                                 m_writeLock.AcquireExclusive();
                                 if (m_writer == null)
                                 {
-                                    m_writer = MyAPIGateway.Utilities.WriteFileInLocalStorage(m_file, typeof(Logging));
-                                    MyLog.Default.WriteLine("Opened log for ProceduralBuildings");
+                                    m_writer = MyAPIGateway.Utilities.WriteFileInWorldStorage(m_file, typeof(MyCustomLogger));
+                                    MyLog.Default.WriteLine("Opened log for ProceduralWorld");
                                 }
                             }
                             finally
@@ -111,27 +122,9 @@ namespace Equinox.Utils
                 });
         }
 
-        public void Log(string fmt, params object[] args)
+        public override void Detach()
         {
-            var shouldFlush = false;
-            try
-            {
-                m_lock.AcquireExclusive();
-                m_cache.AppendFormat(DateTime.Now.ToString("[HH:mm:ss] "));
-                m_cache.AppendFormat(fmt, args);
-                m_cache.Append("\r\n");
-                shouldFlush = DateTime.UtcNow - m_lastWriteTime > WRITE_INTERVAL_TIME;
-            }
-            finally
-            {
-                m_lock.ReleaseExclusive();
-            }
-            if (shouldFlush)
-                Flush();
-        }
-
-        public void Close()
-        {
+            base.Detach();
             if (m_lock == null) return;
             string remains = null;
             if (m_cache != null)
@@ -161,6 +154,31 @@ namespace Equinox.Utils
             {
                 m_writeLock.ReleaseExclusive();
             }
+        }
+
+        private void WriteLineHeader()
+        {
+            var now = DateTime.Now;
+            m_cache.AppendFormat("[{0,2:D2}:{1,2:D2}:{2,2:D2}] ", now.Hour, now.Minute, now.Second);
+        }
+
+        protected override void Write(MyLogSeverity severity, StringBuilder message)
+        {
+            var shouldFlush = false;
+            try
+            {
+                m_lock.AcquireExclusive();
+                WriteLineHeader();
+                m_cache.Append(message);
+                m_cache.Append("\r\n");
+                shouldFlush = DateTime.UtcNow - m_lastWriteTime > WriteIntervalTime;
+            }
+            finally
+            {
+                m_lock.ReleaseExclusive();
+            }
+            if (shouldFlush)
+                Save();
         }
     }
 }

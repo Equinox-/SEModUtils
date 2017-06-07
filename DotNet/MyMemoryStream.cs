@@ -1,15 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using Equinox.ProceduralWorld.Utils.Pool;
 using VRageMath;
 
 namespace Equinox.Utils.DotNet
 {
     public class MyMemoryStream : IDisposable
     {
+        private static readonly MyBufferPool BufferPool = new MyBufferPool(1024 * 1024 * 32, 1024, 1024 * 1024 * 8);
         private readonly byte[] m_buffer = new byte[256];
-
-        private static readonly Queue<byte[]> BufferCache = new Queue<byte[]>();
         public bool IsBufferShared { get; set; }
         public bool IsReallocationAllowed { get; set; }
 
@@ -82,16 +82,14 @@ namespace Equinox.Utils.DotNet
         public void Dispose()
         {
             if (Backing != null && !IsBufferShared)
-                BufferCache.Enqueue(Backing);
+                BufferPool.Return(Backing);
         }
 
         public void Resize(int capacity)
         {
             if (Backing != null && Backing.Length > capacity) return;
             if (!IsReallocationAllowed) throw new InvalidOperationException("This memory stream doesn't allow re-allocation!");
-            var nbuf = (byte[])null;
-            while ((nbuf == null || nbuf.Length < capacity) && BufferCache.Count > 0)
-                nbuf = BufferCache.Dequeue();
+            var nbuf = BufferPool.GetOrCreate(capacity);
             if (nbuf == null || nbuf.Length < capacity)
             {
                 var nsize = Backing?.Length * 2 ?? capacity;
@@ -102,7 +100,7 @@ namespace Equinox.Utils.DotNet
             if (Backing != null)
             {
                 Array.Copy(Backing, 0, nbuf, 0, WriteHead);
-                BufferCache.Enqueue(Backing);
+                BufferPool.Return(Backing);
             }
             Backing = nbuf;
             IsBufferShared = false;
