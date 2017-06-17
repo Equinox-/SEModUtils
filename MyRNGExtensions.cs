@@ -41,7 +41,7 @@ namespace Equinox.Utils
             return lambda * Math.Pow(-Math.Log(random.NextDouble()), lambda);
         }
 
-        public static Vector3D NextVector3(this Random random)
+        public static Vector3D NextVector3D(this Random random)
         {
             return new Vector3(random.NextDouble() * 2 - 1, random.NextDouble() * 2 - 1, random.NextDouble() * 2 - 1);
         }
@@ -49,6 +49,11 @@ namespace Equinox.Utils
         public static Quaternion NextQuaternion(this Random random)
         {
             return Quaternion.CreateFromYawPitchRoll((float)Math.PI * 2 * random.NextFloat(), (float)Math.PI * 2 * random.NextFloat(), (float)Math.PI * 2 * random.NextFloat());
+        }
+
+        public static float NextFloat(this Random random, float min, float max)
+        {
+            return (float)(random.Next() * (max - min) + min);
         }
     }
 }

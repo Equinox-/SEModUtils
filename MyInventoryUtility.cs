@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using Equinox.Utils.Cache;
 using Sandbox.Definitions;
 using Sandbox.Game.Entities;
 using Sandbox.Game.EntityComponents;

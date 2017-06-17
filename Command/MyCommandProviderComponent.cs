@@ -1,9 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Equinox.ProceduralWorld.Utils.Session;
+﻿using System.Collections.Generic;
+using Equinox.Utils.Session;
 
 namespace Equinox.Utils.Command
 {
@@ -29,7 +25,7 @@ namespace Equinox.Utils.Command
         }
 
         private bool m_isAttached;
-        public override void Attach()
+        protected override void Attach()
         {
             base.Attach();
             lock (m_commands)
@@ -40,7 +36,7 @@ namespace Equinox.Utils.Command
             }
         }
 
-        public override void Detach()
+        protected override void Detach()
         {
             base.Detach();
             lock (m_commands)

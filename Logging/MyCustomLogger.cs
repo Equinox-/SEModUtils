@@ -1,8 +1,6 @@
 ﻿using System;
 using System.IO;
 using System.Text;
-using System.Threading;
-using Equinox.ProceduralWorld.Utils.Logging;
 using Equinox.Utils.Session;
 using Sandbox.ModAPI;
 using VRage;
@@ -14,7 +12,7 @@ namespace Equinox.Utils.Logging
     {
         private readonly FastResourceLock m_lock, m_writeLock;
         private readonly StringBuilder m_cache;
-        private readonly string m_file;
+        private string m_file;
         private TextWriter m_writer;
         private DateTime m_lastWriteTime;
         private int m_readyTicks;
@@ -23,9 +21,8 @@ namespace Equinox.Utils.Logging
         private static readonly TimeSpan WriteIntervalTime = new TimeSpan(
             0, 0, 1);
 
-        public MyCustomLogger(string file)
+        public MyCustomLogger()
         {
-            m_file = file;
             m_writer = null;
             m_lock = new FastResourceLock();
             m_writeLock = new FastResourceLock();
@@ -34,7 +31,7 @@ namespace Equinox.Utils.Logging
             m_lastWriteTime = DateTime.Now;
         }
 
-        public override void Attach()
+        protected override void Attach()
         {
             base.Attach();
             MyLog.Default.WriteLineAndConsole("Starting logger for Equinox on (" + m_file + ")");
@@ -44,54 +41,41 @@ namespace Equinox.Utils.Logging
         {
             base.UpdateAfterSimulation();
             var requiresUpdate = false;
-            try
-            {
-                m_lock.AcquireExclusive();
+            using (m_lock.AcquireExclusiveUsing())
                 requiresUpdate = m_cache.Length > 0;
-            }
-            finally
-            {
-                m_lock.ReleaseExclusive();
-            }
             if (requiresUpdate)
                 m_readyTicks++;
             else
                 m_readyTicks = 0;
             if (m_readyTicks <= WRITE_INTERVAL_TICKS) return;
-            Save();
+            Flush();
             m_readyTicks = 0;
         }
 
-        public override void Save()
+        public void Flush()
         {
-            base.Save();
             if (MyAPIGateway.Utilities != null)
                 MyAPIGateway.Parallel.StartBackground(() =>
                 {
                     try
                     {
-
                         if (m_writer == null)
                         {
-                            try
+                            using (m_writeLock.AcquireExclusiveUsing())
                             {
-                                m_writeLock.AcquireExclusive();
                                 if (m_writer == null)
                                 {
-                                    m_writer = MyAPIGateway.Utilities.WriteFileInWorldStorage(m_file, typeof(MyCustomLogger));
+                                    m_writer = MyAPIGateway.Session.IsDecider() ? 
+                                        MyAPIGateway.Utilities.WriteFileInWorldStorage(m_file, typeof(MyCustomLogger)) : 
+                                        MyAPIGateway.Utilities.WriteFileInLocalStorage(m_file, typeof(MyCustomLogger));
                                     MyLog.Default.WriteLine("Opened log for ProceduralWorld");
                                 }
-                            }
-                            finally
-                            {
-                                m_writeLock.ReleaseExclusive();
                             }
                         }
                         if (m_writer == null || m_cache.Length <= 0) return;
                         string cache = null;
-                        try
+                        using (m_lock.AcquireExclusiveUsing())
                         {
-                            m_lock.AcquireExclusive();
                             if (m_writer != null && m_cache.Length > 0)
                             {
                                 cache = m_cache.ToString();
@@ -99,20 +83,11 @@ namespace Equinox.Utils.Logging
                                 m_lastWriteTime = DateTime.UtcNow;
                             }
                         }
-                        finally
-                        {
-                            m_lock.ReleaseExclusive();
-                        }
                         if (cache == null || m_writer == null) return;
-                        try
+                        using (m_writeLock.AcquireExclusiveUsing())
                         {
-                            m_writeLock.AcquireExclusive();
                             m_writer.Write(cache);
                             m_writer.Flush();
-                        }
-                        finally
-                        {
-                            m_writeLock.ReleaseExclusive();
                         }
                     }
                     catch (Exception e)
@@ -122,37 +97,27 @@ namespace Equinox.Utils.Logging
                 });
         }
 
-        public override void Detach()
+        protected override void Detach()
         {
             base.Detach();
             if (m_lock == null) return;
             string remains = null;
             if (m_cache != null)
-                try
+                using (m_lock.AcquireExclusiveUsing())
                 {
-                    m_lock.AcquireExclusive();
                     if (m_cache.Length > 0)
                     {
                         remains = m_cache.ToString();
                         m_cache.Clear();
                     }
                 }
-                finally
-                {
-                    m_lock.ReleaseExclusive();
-                }
             if (m_writer == null) return;
-            try
+            using (m_writeLock.AcquireExclusiveUsing())
             {
-                m_writeLock.AcquireExclusive();
                 if (remains != null)
                     m_writer.Write(remains);
                 m_writer.Close();
                 m_writer = null;
-            }
-            finally
-            {
-                m_writeLock.ReleaseExclusive();
             }
         }
 
@@ -162,23 +127,43 @@ namespace Equinox.Utils.Logging
             m_cache.AppendFormat("[{0,2:D2}:{1,2:D2}:{2,2:D2}] ", now.Hour, now.Minute, now.Second);
         }
 
-        protected override void Write(MyLogSeverity severity, StringBuilder message)
+        protected override void Write(StringBuilder message)
         {
             var shouldFlush = false;
-            try
+            using (m_lock.AcquireExclusiveUsing())
             {
-                m_lock.AcquireExclusive();
                 WriteLineHeader();
                 m_cache.Append(message);
                 m_cache.Append("\r\n");
                 shouldFlush = DateTime.UtcNow - m_lastWriteTime > WriteIntervalTime;
             }
-            finally
-            {
-                m_lock.ReleaseExclusive();
-            }
             if (shouldFlush)
-                Save();
+                Flush();
         }
+
+        public override void LoadConfiguration(MyObjectBuilder_ModSessionComponent config)
+        {
+            base.LoadConfiguration(config);
+            var up = config as MyObjectBuilder_CustomLogger;
+            if (up == null)
+            {
+                Log(MyLogSeverity.Critical, "Configuration type {0} doesn't match component type {1}", config.GetType(), GetType());
+                return;
+            }
+            m_file = up.Filename;
+        }
+
+        public override MyObjectBuilder_ModSessionComponent SaveConfiguration()
+        {
+            var config = new MyObjectBuilder_CustomLogger();
+            config.LogLevel = LogLevel;
+            config.Filename = m_file;
+            return config;
+        }
+    }
+
+    public class MyObjectBuilder_CustomLogger : MyObjectBuilder_LoggerBase
+    {
+        public string Filename;
     }
 }

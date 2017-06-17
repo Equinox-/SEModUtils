@@ -1,17 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Equinox.ProceduralWorld.Utils.Logging;
+﻿using System.Text;
 using Equinox.Utils.Logging;
-using Equinox.Utils.Session;
-using Sandbox.ModAPI;
 using VRage.Utils;
 
-namespace Equinox.ProceduralWorld.Utils.Session
+namespace Equinox.Utils.Session
 {
-    public abstract class MyLoggingSessionComponent : MyModSessionComponent
+    public abstract class MyLoggingSessionComponent : MyModSessionComponent, IMyLogging
     {
         private IMyLogging m_logger;
 
@@ -30,21 +23,53 @@ namespace Equinox.ProceduralWorld.Utils.Session
             });
         }
 
+        public void IncreaseIndent()
+        {
+            if (m_logger != null)
+                m_logger.IncreaseIndent();
+            else if (Manager != null)
+                Manager.FallbackLogger.IncreaseIndent();
+            else
+                MyLog.Default.IncreaseIndent();
+        }
+
+        public void DecreaseIndent()
+        {
+            if (m_logger!=null)
+                m_logger.DecreaseIndent();
+            else if (Manager!=null)
+                Manager.FallbackLogger.DecreaseIndent();
+            else
+                MyLog.Default.DecreaseIndent();
+        }
+
         public void Log(MyLogSeverity severity, string format, params object[] args)
         {
             if (m_logger != null)
                 m_logger.Log(severity, format, args);
+            else if (Manager != null)
+                Manager.FallbackLogger.Log(severity, GetType().Name + ": " + format, args);
             else
-                MyLog.Default?.Log(severity, format, args);
+                MyLog.Default.Log(severity, GetType().Name + ": " + format, args);
         }
 
-        public override void Attach()
+        public void Log(MyLogSeverity severity, StringBuilder message)
+        {
+            if (m_logger != null)
+                m_logger.Log(severity, message);
+            else if (Manager != null)
+                Manager.FallbackLogger.Log(severity, GetType().Name + ": " + message);
+            else
+                MyLog.Default.Log(severity, GetType().Name + ": " +message);
+        }
+
+        protected override void Attach()
         {
             base.Attach();
             Log(MyLogSeverity.Debug, "Attached");
         }
 
-        public override void Detach()
+        protected override void Detach()
         {
             base.Detach();
             Log(MyLogSeverity.Debug, "Detached");

@@ -1,0 +1,280 @@
+﻿<#@ template debug="false" hostspecific="true" language="C#" #>
+<#@ assembly name="System.Core" #>
+<#@ assembly name="EnvDTE" #> 
+<#@ assembly name="EnvDTE80" #> 
+<#@ import namespace="System.Linq" #>
+<#@ import namespace="System.Text" #>
+<#@ import namespace="System.Collections.Generic" #>
+<#@ import namespace="EnvDTE" #>
+<#@ import namespace="EnvDTE80" #>
+<#@ output extension=".cs" #>
+<#
+    var dte = (this.Host as IServiceProvider).GetService(typeof(DTE)) as DTE;
+    var project = dte.Solution.FindProjectItem(this.Host.TemplateFile).ContainingProject;
+
+    var namespaceQueue = new Queue<CodeNamespace>();
+    foreach (CodeElement e in project.CodeModel.CodeElements)
+        if (e.Kind == vsCMElement.vsCMElementNamespace && e.FullName.StartsWith("Equinox"))
+            namespaceQueue.Enqueue((CodeNamespace) e);
+    
+    var typeQueue = new Queue<CodeElement>();
+    while (namespaceQueue.Count > 0) {
+        CodeNamespace vrm = namespaceQueue.Dequeue();
+        foreach (CodeElement c in vrm.Members)
+            if (c.Kind == vsCMElement.vsCMElementNamespace)
+                namespaceQueue.Enqueue((CodeNamespace) c);
+            else
+                typeQueue.Enqueue(c);
+    }
+
+    var baseSyncType = "Equinox.Utils.Network.IMySyncByReference";
+
+    var validTypes = new Dictionary<string, GeneratorInfo>();
+    validTypes[baseSyncType] = new GeneratorInfo(baseSyncType);
+    var allInternalTypes = new HashSet<string>();
+    var genTypes = new Queue<CodeType>();
+    while (typeQueue.Count > 0) {
+        var type = typeQueue.Dequeue();
+        if (type.IsCodeType) {
+            var ctype = (CodeType) type;
+            foreach (CodeElement m in ctype.Members)
+                typeQueue.Enqueue(m);
+            genTypes.Enqueue(ctype);
+            allInternalTypes.Add(ctype.FullName);
+        }
+    }
+    var tmpParent= new Queue<GeneratorInfo>();
+    while (genTypes.Count > 0) {
+        var type = genTypes.Dequeue();
+        if (validTypes.ContainsKey(type.FullName)) continue;
+        var markFail = false;
+        tmpParent.Clear();
+        foreach (CodeElement subtype in type.Bases) 
+            if (allInternalTypes.Contains(subtype.FullName)) {
+                GeneratorInfo parent;
+                if (validTypes.TryGetValue(subtype.FullName, out parent)) {
+                    if (parent != null)
+                        tmpParent.Enqueue(parent);
+                    continue;
+                }
+                markFail = true;
+                break;
+            }
+        if (markFail) {
+            genTypes.Enqueue(type);
+            continue;
+        }
+        if (tmpParent.Count == 0) {
+            validTypes[type.FullName] = null;
+            continue;
+        }
+        var info = new GeneratorInfo(type.FullName);
+        while (tmpParent.Count > 0) {
+            var parent = tmpParent.Dequeue();
+            if (info.parents.Add(parent)) {
+                foreach (var prop in parent.AllProps)
+                    info.AllProps.Add(prop.Key, prop.Value);
+                foreach (var c in parent.parents)
+                    tmpParent.Enqueue(c);
+            }
+        }
+        foreach (CodeElement mem in type.Members) {
+            if (mem.Kind == vsCMElement.vsCMElementEvent) {
+                var evt = (CodeEvent) mem;
+                if (mem.Name.StartsWith("On") && mem.Name.EndsWith("Updated")) {
+                    var propName = mem.Name.Substring(2, mem.Name.Length - 7 - 2);
+                    info.AllEvents.Add(type.FullName + "." + propName, evt);
+                }
+            }
+            if (mem.Kind == vsCMElement.vsCMElementProperty) {
+                var prop = (CodeProperty) mem;
+                info.AllProps.Add(type.FullName + "." + prop.Name, prop);
+            }
+        }
+        validTypes[type.FullName] = info;
+    }
+
+    WriteLine("// ReSharper disable All");
+    WriteLine("using System;");
+    WriteLine("using Equinox.Utils.Stream;");
+    WriteLine("using Equinox.Utils.Network;");
+    var implnames = new Dictionary<string, string>();
+    string currNSN = null;
+    foreach (var kv in validTypes) {
+        var info = kv.Value;
+        if (info != null) {
+            CodeType realType = project.CodeModel.CodeTypeFromFullName(kv.Key);
+            var implname = ImplNameFor(realType);
+            implnames[kv.Key] = implname;
+            var name = implname.Substring(implname.LastIndexOf('.')+1);
+            var nsn = implname.Length > name.Length ? implname.Substring(0, implname.Length - name.Length - 1) : null;
+            if ((currNSN == null && nsn!=null) || (currNSN!=null&&nsn==null) || !currNSN.Equals(nsn)) {
+                if (currNSN!=null) {
+                    PopIndent();
+                    WriteLine("}");
+                }
+                currNSN = null;
+            }
+            if (currNSN == null && nsn != null) {
+                currNSN = nsn;
+                WriteLine($"namespace {nsn}");
+                WriteLine("{");
+                PushIndent("    ");
+            }
+            WriteLine($"public class {name} : MySyncByReference, {kv.Key}");
+            WriteLine("{");
+            PushIndent("    ");
+            var count = 1;
+            foreach (var kv2 in info.AllProps) {
+                var prop = kv2.Value;
+                string propType;
+                if (!simpleTypes.TryGetValue(prop.Type.AsFullName, out propType))
+                    propType = prop.Type.AsFullName;
+                var mangled = kv2.Key.Replace('.', '_');
+                WriteLine($"private const int m_memberID_{mangled} = {count};");
+                WriteLine($"private static readonly MySerializer<{propType}> m_serializer_{mangled} = MySerializerRegistry.Get<{propType}>();");
+                count++;
+                WriteLine($"private bool m_dirtyFlag_{mangled};");
+                WriteLine($"private {propType} m_{mangled};");
+                WriteLine($"{propType} {kv2.Key}" + " { get { return m_" + mangled + "; } set { m_dirtyFlag_"+mangled+"=true; MarkDirty(); m_" + mangled + " = value; }}");
+            }
+            foreach (var kv2 in info.AllEvents) {
+                var evt = kv2.Value;
+                CodeProperty prop;
+                if (!info.AllProps.TryGetValue(kv2.Key, out prop)) {
+                    WriteLine($"// No property found for event {kv2.Key}");
+                    continue;
+                }
+                string propType;
+                if (!simpleTypes.TryGetValue(prop.Type.AsFullName, out propType))
+                    propType = prop.Type.AsFullName;
+                var eventName = $"m_event_{kv2.Key.Replace('.', '_')}";
+                WriteLine($"private Action<{propType}> {eventName};");
+                WriteLine($"event Action<{propType}> {EvtNameFor(kv2.Key)}" + " { add { " + $"{eventName} += value;" + "} remove {"+ $"{eventName} -= value;"+"}}");
+            }
+            WriteLine("public override bool WriteChanges(MyMemoryStream stream, bool fullCopy = false)");
+            WriteLine("{");
+            PushIndent("    ");
+            WriteLine("var wrote = false;");
+            foreach (var kv2 in info.AllProps) {
+                var prop = kv2.Value;
+                string propType;
+                if (!simpleTypes.TryGetValue(prop.Type.AsFullName, out propType))
+                    propType = prop.Type.AsFullName;
+                var mangled = kv2.Key.Replace('.', '_');
+                WriteLine($"if (fullCopy || m_dirtyFlag_{mangled})");
+                WriteLine("{");
+                PushIndent("    ");
+                WriteLine($"wrote = true;");
+                WriteLine($"m_dirtyFlag_{mangled} = false;");
+                WriteLine($"stream.Write7BitEncodedInt(m_memberID_{mangled});");
+                WriteLine($"m_serializer_{mangled}.Write(ref m_{mangled}, stream);");
+                PopIndent();
+                WriteLine("}");
+            }
+            WriteLine("stream.Write7BitEncodedInt(0);");
+            WriteLine("return wrote;");
+            PopIndent();
+            WriteLine("}");
+
+            WriteLine("public override void ReadChanges(MyMemoryStream stream)");
+            WriteLine("{");
+            PushIndent("    ");
+            WriteLine("while(true) {");
+            PushIndent("    ");
+            WriteLine("var id = stream.Read7BitEncodedInt();");
+            WriteLine("if (id == 0) break;");
+            WriteLine("switch (id)");
+            WriteLine("{");
+            PushIndent("    ");
+            foreach (var kv2 in info.AllProps) {
+                var prop = kv2.Value;
+                string propType;
+                if (!simpleTypes.TryGetValue(prop.Type.AsFullName, out propType))
+                    propType = prop.Type.AsFullName;
+                var mangled = kv2.Key.Replace('.', '_');
+                WriteLine($"case m_memberID_{mangled}:");
+                PushIndent("    ");
+                WriteLine($"m_serializer_{mangled}.Read(ref m_{mangled}, stream);");
+                if (info.AllEvents.ContainsKey(kv2.Key)) {
+                    var eventName = $"m_event_{kv2.Key.Replace('.', '_')}";
+                    WriteLine($"{eventName}?.Invoke(m_{mangled});");
+                }
+                WriteLine("break;");
+                PopIndent();
+            }
+            WriteLine("default:");
+            WriteLine("    throw new ArgumentException($\"Badly formatted ID ({id}) for {GetType()}\");");
+            PopIndent();
+            WriteLine("}");
+            PopIndent();
+            WriteLine("}");
+            PopIndent();
+            WriteLine("}");
+
+            PopIndent();
+            WriteLine("}");
+        }
+    }
+    if (currNSN!=null) {
+        PopIndent();
+        WriteLine("}");
+    }
+#>
+namespace Equinox.Utils.Network
+{
+    public static class MySyncObjectGen
+    {
+        public static void RegisterAll()
+        {
+<#
+//MySyncObjectFactory
+    foreach (var kv in validTypes) {
+        var info = kv.Value;
+        if (info != null) {
+            CodeType realType = project.CodeModel.CodeTypeFromFullName(kv.Key);
+            var implname = ImplNameFor(realType);
+            implnames[kv.Key] = implname;
+            WriteLine($"            MySyncObjectFactory.Register<{implname}>(typeof({kv.Key}));");
+        }
+    }
+#>
+        }
+    }
+}
+<#+
+    static string EvtNameFor(string propName) {
+        var name = propName.Substring(propName.LastIndexOf('.') + 1);
+        var type = propName.Length > name.Length ? propName.Substring(0, propName.Length - name.Length) : "";
+        return type + "On" + name + "Updated";
+    }
+    static string ImplNameFor(CodeType typeI) {
+        var type = typeI.FullName.Substring(typeI.Namespace.FullName.Length+1);
+        if (type.StartsWith("IMy")) type = type.Substring(3);
+        return typeI.Namespace.FullName + "My" + type + "Impl";
+    }
+    static Dictionary<string,string> simpleTypes = new Dictionary<string, string>()
+        {
+            {"System.Byte", "byte"},
+            {"System.SByte", "sbyte"},
+            {"System.Int16", "short"},
+            {"System.Int32", "int"},
+            {"System.Int64", "long"},
+            {"System.UInt16", "ushort"},
+            {"System.UInt32", "uint"},
+            {"System.UInt64", "ulong"},
+            {"System.Single", "float"},
+            {"System.Double", "double"},
+            {"System.String", "string"}
+            };
+
+    class GeneratorInfo {
+        public readonly string TypeName;
+        public GeneratorInfo(string type) {
+            TypeName = type;
+        }
+        public readonly Dictionary<string, CodeProperty> AllProps = new Dictionary<string, CodeProperty>();
+        public readonly Dictionary<string, CodeEvent> AllEvents = new Dictionary<string, CodeEvent>();
+        public readonly HashSet<GeneratorInfo> parents = new HashSet<GeneratorInfo>();
+    }
+#>

@@ -1,14 +1,15 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using VRage.Utils;
 
 namespace Equinox.Utils.Logging
 {
     public interface IMyLogging
     {
+        void IncreaseIndent();
+
+        void DecreaseIndent();
+
         void Log(MyLogSeverity severity, string format, params object[] args);
 
         void Log(MyLogSeverity severity, StringBuilder message);
@@ -16,6 +17,28 @@ namespace Equinox.Utils.Logging
 
     public static class MyLoggingExtension
     {
+        private struct IndentToken : IDisposable
+        {
+            private IMyLogging m_log;
+
+            public IndentToken(IMyLogging logger)
+            {
+                m_log = logger;
+                m_log.IncreaseIndent();
+            }
+
+            public void Dispose()
+            {
+                m_log.DecreaseIndent();
+                m_log = null;
+            }
+        }
+
+        public static IDisposable IndentUsing(this IMyLogging self)
+        {
+            return new IndentToken(self);
+        }
+
         public static void Debug(this IMyLogging self, string message, params object[] args)
         {
             self.Log(MyLogSeverity.Debug, message, args);

@@ -1,16 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using Equinox.Utils.Cache;
 using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
 using VRage;
 using VRage.Collections;
-using VRage.Game;
 using VRage.Game.ModAPI;
-using VRage.Generics;
 using VRage.ModAPI;
-using VRage.ObjectBuilders;
-using VRage.Utils;
 using VRageMath;
 
 namespace Equinox.Utils
@@ -55,6 +50,11 @@ namespace Equinox.Utils
                 list.Clear();
                 PlayerListPool.Return(list);
             }
+        }
+
+        public static string ToStringEquinox(this SerializableVector3D v)
+        {
+            return $"{{X:{v.X} Y:{v.Y} Z:{v.Z}}}";
         }
 
         public static void AddOrApply<TK, TV>(this Dictionary<TK, TV> dict, TK key, TV val, Func<TV, TV, TV> biFunc)

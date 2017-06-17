@@ -1,27 +1,66 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Equinox.ProceduralWorld.Utils.Session;
 using Equinox.Utils;
-using Equinox.Utils.DotNet;
 using Equinox.Utils.Pool;
+using Equinox.Utils.Session;
+using Equinox.Utils.Stream;
 using Sandbox.ModAPI;
 using VRage.Utils;
 using VRage;
-using VRage.Collections;
+using VRage.Game;
 
-namespace Equinox.ProceduralWorld.Utils.Network
+namespace Equinox.Utils.Network
 {
+    public struct MyEndpointId
+    {
+        public readonly ulong Value;
+
+        public MyEndpointId(ulong value)
+        {
+            Value = value;
+        }
+
+        public static readonly ulong BroadcastValue = ulong.MaxValue;
+        public static readonly MyEndpointId Broadcast = BroadcastValue;
+
+        public static implicit operator ulong(MyEndpointId endpoint)
+        {
+            return endpoint.Value;
+        }
+        public static implicit operator MyEndpointId(ulong endpoint)
+        {
+            return new MyEndpointId(endpoint);
+        }
+
+        public override int GetHashCode()
+        {
+            return Value.GetHashCode();
+        }
+
+        public override bool Equals(object o)
+        {
+            return (o as MyEndpointId?)?.Value == Value;
+        }
+
+        public static bool operator ==(MyEndpointId a, MyEndpointId b)
+        {
+            return a.Value == b.Value;
+        }
+
+        public static bool operator !=(MyEndpointId a, MyEndpointId b)
+        {
+            return a.Value != b.Value;
+        }
+    }
+
     public class MyNetworkComponent : MyLoggingSessionComponent
     {
         private readonly MyExactBufferPool m_bufferPool = new MyExactBufferPool(4 * 1024, 1024 * 1024);
-        private readonly MyTypedObjectPool m_packetPool = new MyTypedObjectPool(4, 1024 * 32);
+        private readonly MyTypedObjectPool m_packetPool = new MyTypedObjectPool(4, 1024 * 2);
         public const ushort MessageChannel = 57654;
 
         private static readonly Type[] SuppliedDeps = new[] { typeof(MyNetworkComponent) };
-        public override IEnumerable<Type> SuppliesComponents => SuppliedDeps;
+        public override IEnumerable<Type> SuppliedComponents => SuppliedDeps;
 
         private class MyPacketInfo
         {
@@ -42,15 +81,21 @@ namespace Equinox.ProceduralWorld.Utils.Network
         private readonly Dictionary<ulong, MyPacketInfo> m_registeredPacketsByID = new Dictionary<ulong, MyPacketInfo>();
         private readonly Dictionary<Type, MyPacketInfo> m_registeredPacketsByType = new Dictionary<Type, MyPacketInfo>();
 
-        public override void Attach()
+        public static MyEndpointId ServerID => MyAPIGateway.Multiplayer.ServerId;
+        // ReSharper disable once InconsistentNaming
+        public static MyEndpointId MyID => MyAPIGateway.Multiplayer.MyId;
+
+        protected override void Attach()
         {
             base.Attach();
+            if (MyAPIGateway.Multiplayer == null || MyAPIGateway.Session.OnlineMode == MyOnlineModeEnum.OFFLINE) return;
             MyAPIGateway.Multiplayer.RegisterMessageHandler(MessageChannel, MessageHandler);
         }
 
-        public override void Detach()
+        protected override void Detach()
         {
             base.Detach();
+            if (MyAPIGateway.Multiplayer == null || MyAPIGateway.Session.OnlineMode == MyOnlineModeEnum.OFFLINE) return;
             MyAPIGateway.Multiplayer.UnregisterMessageHandler(MessageChannel, MessageHandler);
         }
 
@@ -80,29 +125,73 @@ namespace Equinox.ProceduralWorld.Utils.Network
             }
         }
 
-
         public bool SendMessageToServer(MyPacket message, bool reliable = true)
         {
+            if (MyAPIGateway.Multiplayer == null || MyAPIGateway.Session.OnlineMode == MyOnlineModeEnum.OFFLINE) return false;
+            if (MyAPIGateway.Session.IsDecider())
+            {
+                m_registeredPacketsByType[message.GetType()].Handler.Invoke(message);
+                return true;
+            }
             var data = SerializePacket(message);
             var result = MyAPIGateway.Multiplayer.SendMessageToServer(MessageChannel, data, reliable);
             m_bufferPool.Return(data);
             return result;
         }
 
-        public bool SendMessageToOthers(MyPacket message, bool reliable = true)
+        public bool SendMessage(MyPacket message, MyEndpointId recipient, bool reliable = true)
         {
+            if (MyAPIGateway.Multiplayer == null || MyAPIGateway.Session.OnlineMode == MyOnlineModeEnum.OFFLINE) return false;
+            if (!MyAPIGateway.Session.IsDecider())
+            {
+                Log(MyLogSeverity.Warning, "Can't send a packet as a server when aren't one.");
+                return false;
+            }
+            if (recipient == MyID)
+            {
+                m_registeredPacketsByType[message.GetType()].Handler.Invoke(message);
+                return true;
+            }
+            message.Source = MyID;
             var data = SerializePacket(message);
-            var result = MyAPIGateway.Multiplayer.SendMessageToOthers(MessageChannel, data, reliable);
+            bool result;
+            // ReSharper disable once ConvertIfStatementToConditionalTernaryExpression
+            if (recipient == MyEndpointId.Broadcast)
+                result = MyAPIGateway.Multiplayer.SendMessageToOthers(MessageChannel, data, reliable);
+            else
+                result = MyAPIGateway.Multiplayer.SendMessageTo(MessageChannel, data, recipient, reliable);
             m_bufferPool.Return(data);
             return result;
         }
 
-        public bool SendMessageTo(MyPacket message, ulong recipient, bool reliable = true)
+        public bool SendMessage(MyPacket message, IEnumerable<MyEndpointId> recipients, bool reliable = true)
         {
+            if (MyAPIGateway.Multiplayer == null || MyAPIGateway.Session.OnlineMode == MyOnlineModeEnum.OFFLINE) return false;
+            if (!MyAPIGateway.Session.IsDecider())
+            {
+                Log(MyLogSeverity.Warning, "Can't send a packet as a server when aren't one.");
+                return false;
+            }
+            message.Source = MyID;
             var data = SerializePacket(message);
-            var result = MyAPIGateway.Multiplayer.SendMessageTo(MessageChannel, data, recipient, reliable);
+            var result = true;
+            foreach (var recipient in recipients)
+            {
+                if (recipient == MyID)
+                    m_registeredPacketsByType[message.GetType()].Handler.Invoke(message);
+                else
+                    result &= MyAPIGateway.Multiplayer.SendMessageTo(MessageChannel, data, recipient, reliable);
+            }
             m_bufferPool.Return(data);
             return result;
+        }
+
+        public bool SendMessageGeneric(MyPacket message, MyEndpointId recipient, bool reliable = true)
+        {
+            // ReSharper disable once ConvertIfStatementToReturnStatement
+            if (MyAPIGateway.Session.IsDecider())
+                return SendMessageToServer(message, reliable);
+            return SendMessage(message, recipient, reliable);
         }
 
         public T AllocatePacket<T>() where T : MyPacket, new()
@@ -156,5 +245,23 @@ namespace Equinox.ProceduralWorld.Utils.Network
                 Log(MyLogSeverity.Critical, "Failed to parse packet of type {0}. Error:\n{1}", info.Type, e);
             }
         }
+
+
+        public override void LoadConfiguration(MyObjectBuilder_ModSessionComponent config)
+        {
+            if (config == null) return;
+            if (config is MyObjectBuilder_Network) return;
+            Log(MyLogSeverity.Critical, "Configuration type {0} doesn't match component type {1}", config.GetType(), GetType());
+        }
+
+        public override MyObjectBuilder_ModSessionComponent SaveConfiguration()
+        {
+            return new MyObjectBuilder_Network();
+        }
+    }
+
+    public class MyObjectBuilder_Network : MyObjectBuilder_ModSessionComponent
+    {
+
     }
 }

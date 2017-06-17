@@ -1,13 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
 using System.Text;
-using System.Threading.Tasks;
-using Equinox.ProceduralWorld.Utils.Session;
+using Equinox.Utils.Session;
 using Sandbox.ModAPI;
 using VRage.Collections;
-using VRage.Game.ModAPI;
 using VRage.Utils;
 
 namespace Equinox.Utils.Command
@@ -16,10 +12,10 @@ namespace Equinox.Utils.Command
     {
         private readonly Dictionary<string, MyCommand> m_commands = new Dictionary<string, MyCommand>();
 
-        private static readonly Type[] SuppliedDeps = new[] { typeof(MyCommandDispatchComponent) };
-        public override IEnumerable<Type> SuppliesComponents => SuppliedDeps;
+        private static readonly Type[] SuppliedDeps = { typeof(MyCommandDispatchComponent) };
+        public override IEnumerable<Type> SuppliedComponents => SuppliedDeps;
 
-        public override void Attach()
+        protected override void Attach()
         {
             base.Attach();
             lock (m_commands)
@@ -30,7 +26,7 @@ namespace Equinox.Utils.Command
                 MyAPIGateway.Utilities.MessageEntered += HandleLocalCommand;
         }
 
-        public override void Detach()
+        protected override void Detach()
         {
             base.Detach();
             if (MyUtilities.IsDecisionMaker)
@@ -226,5 +222,20 @@ namespace Equinox.Utils.Command
                 ArgBuilderPool.Return(builder);
             }
         }
+        public override void LoadConfiguration(MyObjectBuilder_ModSessionComponent config)
+        {
+            if (config == null) return;
+            if (config is MyObjectBuilder_CommandDispatch) return;
+            Log(MyLogSeverity.Critical, "Configuration type {0} doesn't match component type {1}", config.GetType(), GetType());
+        }
+
+        public override MyObjectBuilder_ModSessionComponent SaveConfiguration()
+        {
+            return new MyObjectBuilder_CommandDispatch();
+        }
+    }
+
+    public class MyObjectBuilder_CommandDispatch : MyObjectBuilder_ModSessionComponent
+    {
     }
 }

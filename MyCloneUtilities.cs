@@ -1,13 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Equinox.Utils.Cache;
 using Sandbox.ModAPI;
 using VRage.Game;
 using VRage.Game.ObjectBuilders;
-using VRage.Game.ObjectBuilders.Components;
 using VRage.Game.ObjectBuilders.ComponentSystem;
 using VRage.ObjectBuilders;
 using VRage.Serialization;
@@ -18,6 +15,11 @@ namespace Equinox.Utils
     public static class MyCloneUtilities
     {
         private static readonly MyLRUCache<MyObjectBuilder_Base, string> SerializedObjectBuilderCache = new MyLRUCache<MyObjectBuilder_Base, string>(100, null);
+
+        public static T Clone<T>(T src) where T : class
+        {
+            return src == null ? null : MyAPIGateway.Utilities.SerializeFromXML<T>(MyAPIGateway.Utilities.SerializeToXML(src));
+        }
 
         public static T CloneCached<T>(T src) where T : MyObjectBuilder_Base
         {
