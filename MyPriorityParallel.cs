@@ -27,8 +27,10 @@ namespace Equinox.ProceduralWorld.Utils
                 }
                 catch (Exception e)
                 {
-#line 25
                     SessionCore.Log("Background task failed. Reason:\n{0}\nInvoked From:\n{1}", e, trace);
+#if DEBUG
+                    throw;
+#endif
                 }
             });
         }
@@ -56,6 +58,9 @@ namespace Equinox.ProceduralWorld.Utils
                 catch (Exception e)
                 {
                     SessionCore.Log("Background task failed. Reason:\n{0}\nInvoked From:\n{1}", e, trace);
+#if DEBUG
+                    throw;
+#endif
                 }
                 finally
                 {
@@ -88,6 +93,9 @@ namespace Equinox.ProceduralWorld.Utils
                 catch (Exception e)
                 {
                     SessionCore.Log("Background task failed. Reason:\n{0}\nInvoked From:\n{1}", e, trace);
+#if DEBUG
+                    throw;
+#endif
                 }
             });
         }

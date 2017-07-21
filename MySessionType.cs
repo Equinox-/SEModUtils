@@ -32,7 +32,7 @@ namespace Equinox.Utils
         public static bool IsDecider(this IMySession session)
         {
             return MyAPIGateway.Utilities.IsDedicated || (MyAPIGateway.Multiplayer != null && MyAPIGateway.Multiplayer.IsServer) || 
-                session.SessionSettings.OnlineMode == MyOnlineModeEnum.OFFLINE;
+                session.OnlineMode == MyOnlineModeEnum.OFFLINE;
         }
 
         public static MySessionType SessionType(this IMySession session)

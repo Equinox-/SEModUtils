@@ -23,7 +23,7 @@ namespace Equinox.Utils.Session
             /// <summary>
             /// Only used when sorting the components in the DAG.  This is the in-factor
             /// </summary>
-            public int UnsolvedDependencies;
+            public int UnsolvedDependencies, UnsolvedDependenciesNext;
 
             public MyMovingAverageInt64 UpdateBeforeSimulationTime;
             public MyMovingAverageInt64 UpdateBeforeSimulationRRTime, UpdateBeforeSimulationRRJobs;
@@ -250,6 +250,9 @@ namespace Equinox.Utils.Session
             m_dagQueue.AddRange(m_componentDictionary.Values.SelectMany(x => x));
             while (m_dagQueue.Count > 0)
             {
+                foreach (var x in m_componentDictionary.Values.SelectMany(y => y))
+                    x.UnsolvedDependenciesNext = x.UnsolvedDependencies;
+
                 m_tmpQueue.Clear();
                 for (var i = 0; i < m_dagQueue.Count; i++)
                 {
@@ -258,11 +261,13 @@ namespace Equinox.Utils.Session
                     {
                         m_tmpQueue.Add(c);
                         foreach (var d in c.Dependents)
-                            d.UnsolvedDependencies--;
+                            d.UnsolvedDependenciesNext--;
                     }
                     else if (m_tmpQueue.Count > 0)
                         m_dagQueue[i - m_tmpQueue.Count] = c;
                 }
+                foreach (var x in m_componentDictionary.Values.SelectMany(y => y))
+                    x.UnsolvedDependencies = x.UnsolvedDependenciesNext;
                 if (m_tmpQueue.Count == 0)
                 {
                     FallbackLogger.Log(MyLogSeverity.Critical, "Dependency loop detected when solving session DAG");

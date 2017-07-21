@@ -10,6 +10,8 @@ namespace Equinox.Utils.Logging
 {
     public class MyCustomLogger : MyLoggerBase
     {
+        public const string DefaultLogFile = "ProceduralWorld.log";
+
         private readonly FastResourceLock m_lock, m_writeLock;
         private readonly StringBuilder m_cache;
         private string m_file;
@@ -23,6 +25,7 @@ namespace Equinox.Utils.Logging
 
         public MyCustomLogger()
         {
+            m_file = DefaultLogFile;
             m_writer = null;
             m_lock = new FastResourceLock();
             m_writeLock = new FastResourceLock();
@@ -69,6 +72,7 @@ namespace Equinox.Utils.Logging
                                         MyAPIGateway.Utilities.WriteFileInWorldStorage(m_file, typeof(MyCustomLogger)) : 
                                         MyAPIGateway.Utilities.WriteFileInLocalStorage(m_file, typeof(MyCustomLogger));
                                     MyLog.Default.WriteLine("Opened log for ProceduralWorld");
+                                    MyLog.Default.Flush();
                                 }
                             }
                         }
@@ -93,6 +97,10 @@ namespace Equinox.Utils.Logging
                     catch (Exception e)
                     {
                         MyLog.Default.WriteLine("Procedural LogDump: \r\n" + e.ToString());
+                        MyLog.Default.Flush();
+#if DEBUG
+                        throw;
+#endif
                     }
                 });
         }
@@ -164,6 +172,6 @@ namespace Equinox.Utils.Logging
 
     public class MyObjectBuilder_CustomLogger : MyObjectBuilder_LoggerBase
     {
-        public string Filename;
+        public string Filename = MyCustomLogger.DefaultLogFile;
     }
 }

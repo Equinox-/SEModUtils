@@ -18,9 +18,11 @@ namespace Equinox.Utils.Command
         {
             var cmd = new MyCommand(names);
             lock (m_commands)
+            {
                 m_commands.Add(cmd);
-            if (m_isAttached)
-                Dispatch.AddCommand(cmd);
+                if (m_isAttached)
+                    Dispatch.AddCommand(cmd);
+            }
             return cmd;
         }
 

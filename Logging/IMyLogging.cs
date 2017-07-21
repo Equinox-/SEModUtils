@@ -38,7 +38,7 @@ namespace Equinox.Utils.Logging
         {
             return new IndentToken(self);
         }
-
+        
         public static void Debug(this IMyLogging self, string message, params object[] args)
         {
             self.Log(MyLogSeverity.Debug, message, args);

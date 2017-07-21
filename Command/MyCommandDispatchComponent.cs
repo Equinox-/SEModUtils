@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using Equinox.Utils.Session;
 using Sandbox.ModAPI;
@@ -45,7 +46,10 @@ namespace Equinox.Utils.Command
                     if (m_commands.ContainsKey(s))
                         throw new ArgumentException("Command with name " + c + " already exists");
                 foreach (var s in c.Names)
+                {
+                    Log(MyLogSeverity.Debug, "Registering command {0} under {1}", c.GetType().Name, s);
                     m_commands[s] = c;
+                }
             }
         }
 
@@ -54,7 +58,10 @@ namespace Equinox.Utils.Command
             lock (m_commands)
             {
                 foreach (var s in c.Names)
+                {
+                    Log(MyLogSeverity.Debug, "Unregistering command {0} under {1}", c.GetType().Name, s);
                     m_commands.Remove(s);
+                }
             }
         }
 
@@ -100,6 +107,9 @@ namespace Equinox.Utils.Command
             catch (Exception e)
             {
                 Log(MyLogSeverity.Critical, "Failed to process \"{0}\".  Error:\n{1}", msg, e.ToString());
+#if DEBUG
+                throw;
+#endif
             }
         }
 
@@ -146,6 +156,9 @@ namespace Equinox.Utils.Command
             catch (Exception e)
             {
                 Log(MyLogSeverity.Critical, "Failed to process \"{0}\".  Error:\n{1}", msg, e.ToString());
+#if DEBUG
+                throw;
+#endif
             }
         }
 
