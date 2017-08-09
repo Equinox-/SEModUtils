@@ -243,9 +243,6 @@ namespace Equinox.Utils.Network
             catch (Exception e)
             {
                 Log(MyLogSeverity.Critical, "Failed to parse packet of type {0}. Error:\n{1}", info.Type, e);
-#if DEBUG
-                throw;
-#endif
             }
         }
 

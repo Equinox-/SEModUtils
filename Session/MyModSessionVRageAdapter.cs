@@ -32,9 +32,6 @@ namespace Equinox.Utils.Session
             {
                 Manager.FallbackLogger.Log(MyLogSeverity.Critical, "Failed to update-before-simulation session manager:\n{0}", e);
                 m_failed = true;
-#if DEBUG
-                throw;
-#endif
             }
         }
 
@@ -52,9 +49,6 @@ namespace Equinox.Utils.Session
             {
                 Manager.FallbackLogger.Log(MyLogSeverity.Critical, "Failed to update-after-simulation session manager:\n{0}", e);
                 m_failed = true;
-#if DEBUG
-                throw;
-#endif
             }
         }
 
@@ -72,9 +66,6 @@ namespace Equinox.Utils.Session
             {
                 Manager.FallbackLogger.Log(MyLogSeverity.Critical, "Failed to save session manager:\n{0}", e);
                 m_failed = true;
-#if DEBUG
-                throw;
-#endif
             }
         }
 
@@ -94,9 +85,6 @@ namespace Equinox.Utils.Session
             {
                 Manager.FallbackLogger.Log(MyLogSeverity.Critical, "Failed to attach session manager:\n{0}", e);
                 m_failed = true;
-#if DEBUG
-                throw;
-#endif
             }
         }
 
@@ -111,9 +99,6 @@ namespace Equinox.Utils.Session
             {
                 Manager.FallbackLogger.Log(MyLogSeverity.Critical, "Failed to detach session manager:\n{0}", e);
                 m_failed = true;
-#if DEBUG
-                throw;
-#endif
             }
         }
     }

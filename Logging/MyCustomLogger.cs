@@ -98,9 +98,6 @@ namespace Equinox.Utils.Logging
                     {
                         MyLog.Default.WriteLine("Procedural LogDump: \r\n" + e.ToString());
                         MyLog.Default.Flush();
-#if DEBUG
-                        throw;
-#endif
                     }
                 });
         }

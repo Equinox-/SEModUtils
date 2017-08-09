@@ -22,66 +22,88 @@ namespace Equinox.Utils.Command
             {
                 var s = false;
                 result = null;
-                if (Type == typeof(string))
+                var parseAs = Type;
+                if (Type == typeof(byte?))
+                    parseAs = typeof(byte);
+                else if (Type == typeof(short?))
+                    parseAs = typeof(short);
+                else if (Type == typeof(int?))
+                    parseAs = typeof(int);
+                else if (Type == typeof(long?))
+                    parseAs = typeof(long);
+                else if (Type == typeof(ushort?))
+                    parseAs = typeof(ushort);
+                else if (Type == typeof(uint?))
+                    parseAs = typeof(uint);
+                else if (Type == typeof(ulong?))
+                    parseAs = typeof(ulong);
+                else if (Type == typeof(float?))
+                    parseAs = typeof(float);
+                else if (Type == typeof(double?))
+                    parseAs = typeof(double);
+                else if (Type == typeof(bool?))
+                    parseAs = typeof(bool);
+
+                if (parseAs == typeof(string))
                 {
                     s = true;
                     result = key;
                 }
-                else if (Type == typeof(byte))
+                else if (parseAs == typeof(byte))
                 {
                     byte r;
                     s = byte.TryParse(key, out r);
                     result = r;
                 }
-                else if (Type == typeof(short))
+                else if (parseAs == typeof(short))
                 {
                     short r;
                     s = short.TryParse(key, out r);
                     result = r;
                 }
-                else if (Type == typeof(int))
+                else if (parseAs == typeof(int))
                 {
                     int r;
                     s = int.TryParse(key, out r);
                     result = r;
                 }
-                else if (Type == typeof(long))
+                else if (parseAs == typeof(long))
                 {
                     long r;
                     s = long.TryParse(key, out r);
                     result = r;
                 }
-                else if (Type == typeof(ushort))
+                else if (parseAs == typeof(ushort))
                 {
                     ushort r;
                     s = ushort.TryParse(key, out r);
                     result = r;
                 }
-                else if (Type == typeof(uint))
+                else if (parseAs == typeof(uint))
                 {
                     uint r;
                     s = uint.TryParse(key, out r);
                     result = r;
                 }
-                else if (Type == typeof(ulong))
+                else if (parseAs == typeof(ulong))
                 {
                     ulong r;
                     s = ulong.TryParse(key, out r);
                     result = r;
                 }
-                else if (Type == typeof(float))
+                else if (parseAs == typeof(float))
                 {
                     float r;
                     s = float.TryParse(key, out r);
                     result = r;
                 }
-                else if (Type == typeof(double))
+                else if (parseAs == typeof(double))
                 {
                     double r;
                     s = double.TryParse(key, out r);
                     result = r;
                 }
-                else if (Type == typeof(bool))
+                else if (parseAs == typeof(bool))
                 {
                     bool r;
                     s = bool.TryParse(key, out r);
@@ -154,11 +176,20 @@ namespace Equinox.Utils.Command
             return level >= MinimumLevel;
         }
 
+        public MyCommand NamedArgument<T>(string name)
+        {
+            return NamedArgument<T>(new[] { name });
+        }
         public MyCommand NamedArgument<T>(string[] names)
         {
             var arg = new MyNamedArgument(names, typeof(T), false);
             Register(arg);
             return this;
+        }
+
+        public MyCommand NamedArgument<T>(string name, T defaultValue)
+        {
+            return NamedArgument<T>(new[] { name }, defaultValue);
         }
 
         public MyCommand NamedArgument<T>(string[] names, T defaultValue)
@@ -170,6 +201,11 @@ namespace Equinox.Utils.Command
             return this;
         }
 
+
+        public MyCommand NamedFlag(string name)
+        {
+            return NamedFlag(new[] { name });
+        }
         public MyCommand NamedFlag(string[] names)
         {
             var arg = new MyNamedArgument(names, typeof(bool), true);

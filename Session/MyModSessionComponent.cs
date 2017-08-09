@@ -15,21 +15,21 @@ namespace Equinox.Utils.Session
 
         protected void DependsOn<T>(Action<T> resolver) where T : MyModSessionComponent
         {
-            m_dependencies[typeof(T)] = (x) => resolver((T)x);
+            m_dependencies.Add(typeof(T), (x) => resolver((T)x));
         }
-
+        
         public void SatisfyDependency(MyModSessionComponent c)
         {
             var hit = false;
             foreach (var type in c.SuppliedComponents)
             {
                 MyDependencyResolver resolver;
-                if (!m_dependencies.TryGetValue(type, out resolver)) continue;
+                if (!m_dependencies.TryGetValue(type, out resolver) ) continue;
                 hit = true;
                 resolver(c);
             }
             if (!hit)
-                throw new ArgumentException("Can't use component " + c.GetType() + " to satisfy any of " + m_dependencies.Keys.Aggregate("", (a, b) => b + ", " + a));
+                throw new ArgumentException("Can't use component " + c.GetType() + " to satisfy any of " + string.Join(", ", m_dependencies.Keys));
         }
 
         public IEnumerable<Type> Dependencies => m_dependencies.Keys;

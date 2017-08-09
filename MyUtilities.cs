@@ -201,7 +201,7 @@ namespace Equinox.Utils
         }
         #endregion
 
-        internal static MatrixI Multiply(MatrixI right, MatrixI left)
+        internal static MatrixI Multiply(MatrixI left, MatrixI right)
         {
             MatrixI result;
             MatrixI.Multiply(ref left, ref right, out result);

@@ -12,6 +12,7 @@ using VRageMath;
 
 namespace Equinox.Utils
 {
+#pragma warning disable CS0618
     public static class MyCloneUtilities
     {
         private static readonly MyLRUCache<MyObjectBuilder_Base, string> SerializedObjectBuilderCache = new MyLRUCache<MyObjectBuilder_Base, string>(100, null);
@@ -28,6 +29,7 @@ namespace Equinox.Utils
 
         public static MyObjectBuilder_CubeGrid CloneFast(MyObjectBuilder_CubeGrid src)
         {
+//            if (true) return (MyObjectBuilder_CubeGrid)src.Clone();
             if (src == null) return null;
             // TODO check version numbers for slightly better code?
             if (src.GetType() != typeof(MyObjectBuilder_CubeGrid)) return (MyObjectBuilder_CubeGrid)src.Clone();
@@ -1416,4 +1418,5 @@ namespace Equinox.Utils
             return res;
         }
     }
+#pragma warning restore CS0618
 }

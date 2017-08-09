@@ -107,9 +107,6 @@ namespace Equinox.Utils.Command
             catch (Exception e)
             {
                 Log(MyLogSeverity.Critical, "Failed to process \"{0}\".  Error:\n{1}", msg, e.ToString());
-#if DEBUG
-                throw;
-#endif
             }
         }
 
@@ -156,9 +153,6 @@ namespace Equinox.Utils.Command
             catch (Exception e)
             {
                 Log(MyLogSeverity.Critical, "Failed to process \"{0}\".  Error:\n{1}", msg, e.ToString());
-#if DEBUG
-                throw;
-#endif
             }
         }
 

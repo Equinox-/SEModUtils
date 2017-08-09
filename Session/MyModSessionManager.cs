@@ -20,6 +20,7 @@ namespace Equinox.Utils.Session
 
             public readonly HashSet<MyRuntimeSessionComponent> Dependents = new HashSet<MyRuntimeSessionComponent>();
             public readonly HashSet<MyRuntimeSessionComponent> Dependencies = new HashSet<MyRuntimeSessionComponent>();
+
             /// <summary>
             /// Only used when sorting the components in the DAG.  This is the in-factor
             /// </summary>
@@ -209,7 +210,7 @@ namespace Equinox.Utils.Session
                 }
             }
         }
-
+        
         public IEnumerable<T> GetAll<T>() where T : MyModSessionComponent
         {
             return m_componentDictionary.GetValueOrDefault(typeof(T), null)?.Cast<T>() ?? Enumerable.Empty<T>();
@@ -275,9 +276,9 @@ namespace Equinox.Utils.Session
                         foreach (var k in m_dagQueue)
                             FallbackLogger.Log(MyLogSeverity.Critical, "{0}x{1} has {2} unsolved dependencies.  Dependencies are {3}, Dependents are {4}", k.Component.GetType().Name,
                                 k.Component.GetType().GetHashCode(), k.UnsolvedDependencies,
-                                k.Dependencies.Aggregate("", (a, b) => b.Component.GetType() + "x" + b.Component.GetHashCode() + ", " + a),
-                                k.Dependents.Aggregate("", (a, b) => b.Component.GetType() + "x" + b.Component.GetHashCode() + ", " + a));
-                    throw new ArgumentException("Dependency loop inside " + m_dagQueue.Aggregate("", (a, b) => b.Component.GetType() + ", " + a));
+                                string.Join(", ", k.Dependencies.Select(x=>x.Component.GetType() + "x" +x.Component.GetHashCode())),
+                                string.Join(", ", k.Dependents.Select(x => x.Component.GetType() + "x" + x.Component.GetHashCode())));
+                    throw new ArgumentException("Dependency loop inside " + string.Join(", ", m_dagQueue.Select(x=>x.Component.GetType() + "x" + x.Component.GetHashCode())));
                 }
                 m_dagQueue.RemoveRange(m_dagQueue.Count - m_tmpQueue.Count, m_tmpQueue.Count);
                 // Sort temp queue, add to sorted list.
@@ -312,9 +313,7 @@ namespace Equinox.Utils.Session
             ApplyComponentChanges();
             foreach (var x in m_orderedComponentList)
                 x.Component.UpdateBeforeSimulation();
-
-            if (m_orderedComponentList.Count == 0) return;
-            m_rrUpdateBeforeHead = (m_rrUpdateBeforeHead + 1) % m_orderedComponentList.Count;
+            
             var ticksSinceChanged = 0;
             while (m_rrStopwatch.Elapsed < TolerableLag && ticksSinceChanged < m_orderedComponentList.Count)
             {
@@ -333,9 +332,7 @@ namespace Equinox.Utils.Session
             ApplyComponentChanges();
             foreach (var x in m_orderedComponentList)
                 x.Component.UpdateAfterSimulation();
-
-            if (m_orderedComponentList.Count == 0) return;
-            m_rrUpdateAfterHead = (m_rrUpdateAfterHead + 1) % m_orderedComponentList.Count;
+            
             var ticksSinceChanged = 0;
             while (m_rrStopwatch.Elapsed < TolerableLag && ticksSinceChanged < m_orderedComponentList.Count)
             {
@@ -370,9 +367,11 @@ namespace Equinox.Utils.Session
 
         public MyObjectBuilder_SessionManager SaveConfiguration()
         {
-            var res = new MyObjectBuilder_SessionManager();
-            res.TolerableLag = TolerableLag;
-            res.SessionComponents = new List<MyObjectBuilder_ModSessionComponent>();
+            var res = new MyObjectBuilder_SessionManager
+            {
+                TolerableLag = TolerableLag,
+                SessionComponents = new List<MyObjectBuilder_ModSessionComponent>()
+            };
             foreach (var k in m_componentDictionary.Values.SelectMany(x => x))
                 if (k.Component.SaveToStorage)
                     res.SessionComponents.Add(k.Component.SaveConfiguration());
