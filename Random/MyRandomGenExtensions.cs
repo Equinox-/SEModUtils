@@ -3,7 +3,7 @@ using VRageMath;
 
 namespace Equinox.Utils
 {
-    public static class MyRNGExtensions
+    public static class MyRandomGenExtensions
     {
         public static float NextFloat(this Random random)
         {
@@ -11,7 +11,7 @@ namespace Equinox.Utils
         }
         public static long NextLong(this Random random)
         {
-            return ((long)random.Next()) << 32 | (long)random.Next();
+            return (long)random.Next() << 32 | (long)random.Next();
         }
 
         public static double NextNormal(this Random random, double mu = 0, double sigma = 1)

@@ -4,7 +4,7 @@ using VRage.Utils;
 
 namespace Equinox.Utils.Logging
 {
-    public class MyFallbackLogger : IMyLogging
+    public class MyFallbackLogger : IMyLoggingBase
     {
         private readonly MyModSessionManager m_manager;
 
@@ -58,6 +58,36 @@ namespace Equinox.Utils.Logging
                 {
                     m_builder.EnsureCapacity(message.Length + 4);
                     m_builder.Append("EPW: ").Append(message);
+                    MyLog.Default?.Log(severity, m_builder);
+                    m_builder.Clear();
+                }
+        }
+
+        public void Log(MyLogSeverity severity, string prefix, string format, params object[] args)
+        {
+            var logger = m_manager.GetDependencyProvider<MyLoggerBase>();
+            if (logger != null && logger.IsAttached)
+                logger.Log(severity, prefix, format, args);
+            else
+                lock (m_builder)
+                {
+                    m_builder.EnsureCapacity(format.Length + 4);
+                    m_builder.Append("EPW: ").Append(prefix).AppendFormat(format, args);
+                    MyLog.Default?.Log(severity, m_builder);
+                    m_builder.Clear();
+                }
+        }
+
+        public void Log(MyLogSeverity severity, string prefix, StringBuilder message)
+        {
+            var logger = m_manager.GetDependencyProvider<MyLoggerBase>();
+            if (logger != null && logger.IsAttached)
+                logger.Log(severity, prefix, message);
+            else
+                lock (m_builder)
+                {
+                    m_builder.EnsureCapacity(message.Length + 4);
+                    m_builder.Append("EPW: ").Append(prefix).Append(message);
                     MyLog.Default?.Log(severity, m_builder);
                     m_builder.Clear();
                 }

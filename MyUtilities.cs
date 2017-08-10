@@ -51,12 +51,7 @@ namespace Equinox.Utils
                 PlayerListPool.Return(list);
             }
         }
-
-        public static string ToStringEquinox(this SerializableVector3D v)
-        {
-            return $"{{X:{v.X} Y:{v.Y} Z:{v.Z}}}";
-        }
-
+        
         public static void AddOrApply<TK, TV>(this Dictionary<TK, TV> dict, TK key, TV val, Func<TV, TV, TV> biFunc)
         {
             TV valCurrent;
@@ -90,39 +85,7 @@ namespace Equinox.Utils
             if (value != null)
                 list.Add(value);
         }
-
-        public static void SetNeedsWorldMatrix(this IMyEntity e, bool needs)
-        {
-            var old = e.NeedsWorldMatrix;
-            if (needs == old) return;
-            e.NeedsWorldMatrix = needs;
-            if (!needs) return;
-            e.Hierarchy?.Parent?.Entity?.SetNeedsWorldMatrix(true);
-        }
-
-        public static bool Equals(this MatrixI mat, MatrixI other)
-        {
-            return mat.Translation == other.Translation && mat.Backward == other.Backward && mat.Right == other.Right && mat.Up == other.Up;
-        }
-
-        public static Vector3D Slerp(this Vector3D start, Vector3D end, float percent)
-        {
-            var dot = start.Dot(end);
-            // clamp [-1,1]
-            dot = dot < -1 ? -1 : (dot > 1 ? 1 : dot);
-            var theta = Math.Acos(dot) * percent;
-            var tmp = end - start * dot;
-            tmp.Normalize();
-            return (start * Math.Cos(theta)) + (tmp * Math.Sin(theta));
-        }
-
-        public static Vector3D NLerp(this Vector3D start, Vector3D end, float percent)
-        {
-            var res = Vector3D.Lerp(start, end, percent);
-            res.Normalize();
-            return res;
-        }
-
+        
         public delegate void LoggingCallback(string format, params object[] args);
 
         public static LoggingCallback LogToList(List<string> dest)
@@ -201,7 +164,7 @@ namespace Equinox.Utils
         }
         #endregion
 
-        internal static MatrixI Multiply(MatrixI left, MatrixI right)
+        public static MatrixI Multiply(MatrixI left, MatrixI right)
         {
             MatrixI result;
             MatrixI.Multiply(ref left, ref right, out result);

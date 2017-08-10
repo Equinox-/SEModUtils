@@ -83,7 +83,7 @@ namespace Equinox.Utils.Session
         private readonly MyConcurrentQueue<MyRemoveOrAdd> m_componentsToModify = new MyConcurrentQueue<MyRemoveOrAdd>();
         private bool m_attached = false;
 
-        public IMyLogging FallbackLogger { get; }
+        public IMyLoggingBase FallbackLogger { get; }
         public IEnumerable<MyModSessionComponent> OrderedComponents => m_orderedComponentList.Select(x => x.Component);
         public TimeSpan TolerableLag { get; set; } = TimeSpan.FromSeconds(MyEngineConstants.UPDATE_STEP_SIZE_IN_SECONDS);
 

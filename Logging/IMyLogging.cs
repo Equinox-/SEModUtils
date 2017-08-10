@@ -15,8 +15,24 @@ namespace Equinox.Utils.Logging
         void Log(MyLogSeverity severity, StringBuilder message);
     }
 
+    public interface IMyLoggingBase : IMyLogging
+    {
+        void Log(MyLogSeverity severity, string prefix, string format, params object[] args);
+        void Log(MyLogSeverity severity, string prefix, StringBuilder message);
+    }
+
     public static class MyLoggingExtension
     {
+        public static IMyLoggingBase Root(this IMyLogging self)
+        {
+            return (self as IMyLoggingBase) ?? (self as MyLoggingProxy)?.Backing.Root() ?? throw new Exception("No logging root");
+        }
+
+        public static IMyLogging CreateProxy(this IMyLoggingBase self, string prefix)
+        {
+            return new MyLoggingProxy(self, prefix);
+        }
+
         private struct IndentToken : IDisposable
         {
             private IMyLogging m_log;
@@ -38,12 +54,12 @@ namespace Equinox.Utils.Logging
         {
             return new IndentToken(self);
         }
-        
+
         public static void Debug(this IMyLogging self, string message, params object[] args)
         {
             self.Log(MyLogSeverity.Debug, message, args);
         }
-    
+
         public static void Debug(this IMyLogging self, StringBuilder buillder)
         {
             self.Log(MyLogSeverity.Debug, buillder);

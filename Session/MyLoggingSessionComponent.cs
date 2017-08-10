@@ -6,6 +6,7 @@ namespace Equinox.Utils.Session
 {
     public abstract class MyLoggingSessionComponent : MyModSessionComponent, IMyLogging
     {
+        public IMyLoggingBase RootLogger { get; private set; }
         private IMyLogging m_logger;
 
         protected MyLoggingSessionComponent()
@@ -13,12 +14,11 @@ namespace Equinox.Utils.Session
             m_logger = null;
 
             var builder = new StringBuilder(48);
-            builder.Append(GetType().Name).Append(" ");
-            while (builder.Length < 48)
-                builder.Append(' ');
+            builder.Append(GetType().Name).Append(' ');
             var simpleName = builder.ToString();
             DependsOn((MyLoggerBase y) =>
             {
+                RootLogger = y;
                 m_logger = y?.CreateProxy(simpleName);
             });
         }

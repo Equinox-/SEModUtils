@@ -12,7 +12,7 @@ namespace Equinox.Utils.Logging
         public MyLogSeverity LogLevel = MyLogSeverity.Debug;
     }
 
-    public abstract class MyLoggerBase : MyModSessionComponent, IMyLogging
+    public abstract class MyLoggerBase : MyModSessionComponent, IMyLoggingBase
     {
         private readonly StringBuilder m_messageBuilder = new StringBuilder();
         private readonly StringBuilder m_indentBuilder = new StringBuilder();
@@ -73,45 +73,7 @@ namespace Equinox.Utils.Logging
             if ((int)severity < (int)LogLevel) return;
             Write(message);
         }
-
-
-        private class MyLoggingProxy : IMyLogging
-        {
-            private readonly MyLoggerBase m_backing;
-            private readonly string m_prefix;
-
-            public MyLoggingProxy(MyLoggerBase backing, string prefix)
-            {
-                m_backing = backing;
-                m_prefix = prefix;
-            }
-
-            public void IncreaseIndent()
-            {
-                m_backing.IncreaseIndent();
-            }
-
-            public void DecreaseIndent()
-            {
-                m_backing.DecreaseIndent();
-            }
-
-            public void Log(MyLogSeverity severity, string format, params object[] args)
-            {
-                m_backing.Log(severity, m_prefix, format, args);
-            }
-
-            public void Log(MyLogSeverity severity, StringBuilder message)
-            {
-                m_backing.Log(severity, m_prefix, message);
-            }
-        }
-
-        public IMyLogging CreateProxy(string prefix)
-        {
-            return new MyLoggingProxy(this, prefix);
-        }
-
+        
         public override void LoadConfiguration(MyObjectBuilder_ModSessionComponent config)
         {
             if (config == null)
