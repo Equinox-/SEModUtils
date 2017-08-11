@@ -25,7 +25,10 @@ namespace Equinox.Utils.Logging
     {
         public static IMyLoggingBase Root(this IMyLogging self)
         {
-            return (self as IMyLoggingBase) ?? (self as MyLoggingProxy)?.Backing.Root() ?? throw new Exception("No logging root");
+            var result = (self as IMyLoggingBase) ?? (self as MyLoggingProxy)?.Backing.Root();
+            if (result == null)
+                throw new Exception("No logging root");
+            return result;
         }
 
         public static IMyLogging CreateProxy(this IMyLoggingBase self, string prefix)
