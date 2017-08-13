@@ -127,7 +127,7 @@ namespace Equinox.Utils.Command
         public string[] Names { get; }
         private readonly Dictionary<string, MyNamedArgument> m_namedArguments;
         private readonly List<MyArgument> m_orderedArguments;
-        private Func<Dictionary<string, object>, object[], string> m_handler;
+        private Func<CommandFeedback, Dictionary<string, object>, object[], string> m_handler;
 
         public MySessionType AllowedSessionType { get; private set; }
         public MyPromoteLevel MinimumLevel { get; private set; }
@@ -223,81 +223,81 @@ namespace Equinox.Utils.Command
             return this;
         }
 
-        public MyCommand Handler(Func<Dictionary<string, object>, string> handler)
+        public MyCommand Handler(Func<CommandFeedback, Dictionary<string, object>, string> handler)
         {
             m_orderedArguments.Clear();
-            m_handler = (kwargs, args) => handler(kwargs);
+            m_handler = (feedback, kwargs, args) => handler(feedback, kwargs);
             return this;
         }
 
-        public MyCommand Handler<T1>(Func<Dictionary<string, object>, T1, string> handler)
+        public MyCommand Handler<T1>(Func<CommandFeedback, Dictionary<string, object>, T1, string> handler)
         {
             m_orderedArguments.Clear();
             m_orderedArguments.Add(new MyArgument(typeof(T1)));
-            m_handler = (kwargs, args) => handler(kwargs, (T1)args[0]);
+            m_handler = (feedback, kwargs, args) => handler(feedback, kwargs, (T1)args[0]);
             return this;
         }
-        public MyCommand Handler<T1, T2>(Func<Dictionary<string, object>, T1, T2, string> handler)
+        public MyCommand Handler<T1, T2>(Func<CommandFeedback, Dictionary<string, object>, T1, T2, string> handler)
         {
             m_orderedArguments.Clear();
             m_orderedArguments.Add(new MyArgument(typeof(T1)));
             m_orderedArguments.Add(new MyArgument(typeof(T2)));
-            m_handler = (kwargs, args) => handler(kwargs, (T1)args[0], (T2)args[1]);
+            m_handler = (feedback, kwargs, args) => handler(feedback, kwargs, (T1)args[0], (T2)args[1]);
             return this;
         }
-        public MyCommand Handler<T1, T2, T3>(Func<Dictionary<string, object>, T1, T2, T3, string> handler)
+        public MyCommand Handler<T1, T2, T3>(Func<CommandFeedback, Dictionary<string, object>, T1, T2, T3, string> handler)
         {
             m_orderedArguments.Clear();
             m_orderedArguments.Add(new MyArgument(typeof(T1)));
             m_orderedArguments.Add(new MyArgument(typeof(T2)));
             m_orderedArguments.Add(new MyArgument(typeof(T3)));
-            m_handler = (kwargs, args) => handler(kwargs, (T1)args[0], (T2)args[1], (T3)args[2]);
+            m_handler = (feedback, kwargs, args) => handler(feedback, kwargs, (T1)args[0], (T2)args[1], (T3)args[2]);
             return this;
         }
 
-        public MyCommand Handler(Func<string> handler)
+        public MyCommand Handler(Func<CommandFeedback, string> handler)
         {
             m_orderedArguments.Clear();
-            m_handler = (kwargs, args) => handler();
+            m_handler = (feedback, kwargs, args) => handler(feedback);
             return this;
         }
 
-        public MyCommand Handler<T1>(Func<T1, string> handler)
+        public MyCommand Handler<T1>(Func<CommandFeedback, T1, string> handler)
         {
             m_orderedArguments.Clear();
             m_orderedArguments.Add(new MyArgument(typeof(T1)));
-            m_handler = (kwargs, args) => handler((T1)args[0]);
+            m_handler = (feedback, kwargs, args) => handler(feedback, (T1)args[0]);
             return this;
         }
-        public MyCommand Handler<T1, T2>(Func<T1, T2, string> handler)
+        public MyCommand Handler<T1, T2>(Func<CommandFeedback, T1, T2, string> handler)
         {
             m_orderedArguments.Clear();
             m_orderedArguments.Add(new MyArgument(typeof(T1)));
             m_orderedArguments.Add(new MyArgument(typeof(T2)));
-            m_handler = (kwargs, args) => handler((T1)args[0], (T2)args[1]);
+            m_handler = (feedback, kwargs, args) => handler(feedback, (T1)args[0], (T2)args[1]);
             return this;
         }
-        public MyCommand Handler<T1, T2, T3>(Func<T1, T2, T3, string> handler)
+        public MyCommand Handler<T1, T2, T3>(Func<CommandFeedback, T1, T2, T3, string> handler)
         {
             m_orderedArguments.Clear();
             m_orderedArguments.Add(new MyArgument(typeof(T1)));
             m_orderedArguments.Add(new MyArgument(typeof(T2)));
             m_orderedArguments.Add(new MyArgument(typeof(T3)));
-            m_handler = (kwargs, args) => handler((T1)args[0], (T2)args[1], (T3)args[2]);
+            m_handler = (feedback, kwargs, args) => handler(feedback, (T1)args[0], (T2)args[1], (T3)args[2]);
             return this;
         }
-        public MyCommand Handler<T1, T2, T3, T4>(Func<T1, T2, T3, T4, string> handler)
+        public MyCommand Handler<T1, T2, T3, T4>(Func<CommandFeedback, T1, T2, T3, T4, string> handler)
         {
             m_orderedArguments.Clear();
             m_orderedArguments.Add(new MyArgument(typeof(T1)));
             m_orderedArguments.Add(new MyArgument(typeof(T2)));
             m_orderedArguments.Add(new MyArgument(typeof(T3)));
             m_orderedArguments.Add(new MyArgument(typeof(T4)));
-            m_handler = (kwargs, args) => handler((T1)args[0], (T2)args[1], (T3)args[2], (T4)args[3]);
+            m_handler = (feedback, kwargs, args) => handler(feedback, (T1)args[0], (T2)args[1], (T3)args[2], (T4)args[3]);
             return this;
         }
 
-        public string Process(string[] args)
+        public string Process(CommandFeedback feedback, string[] args)
         {
             if (args.Length < m_orderedArguments.Count + 1)
             {
@@ -394,7 +394,9 @@ namespace Equinox.Utils.Command
             // ReSharper disable once ConvertIfStatementToReturnStatement
             if (pArgCount < m_orderedArguments.Count)
                 return "Unable to find enough ordered arguments";
-            return m_handler.Invoke(kwargs, pargs);
+            return m_handler.Invoke(feedback, kwargs, pargs);
         }
     }
+
+    public delegate void CommandFeedback(string format, params object[] args);
 }

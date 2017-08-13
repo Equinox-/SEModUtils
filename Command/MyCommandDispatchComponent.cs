@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Equinox.Utils.Session;
+using Sandbox.Game;
 using Sandbox.ModAPI;
 using VRage.Collections;
 using VRage.Utils;
@@ -68,6 +69,10 @@ namespace Equinox.Utils.Command
         private void HandleLocalCommand(string msg, ref bool sendToOthers)
         {
             if (msg.Length == 0 || msg[0] != '/') return;
+            var cmdFeedback = new CommandFeedback((format, fields) =>
+            {
+                MyAPIGateway.Utilities.ShowMessage("EqUtils", string.Format(format, fields));
+            });
             try
             {
                 var args = ParseArguments(msg, 1);
@@ -93,12 +98,12 @@ namespace Equinox.Utils.Command
                 }
                 if (!cmd.CanPromotionLevelUse(player.PromoteLevel))
                 {
-                    MyAPIGateway.Utilities.ShowMessage("EqUtils", "You must be at least " + cmd.MinimumLevel + " to use this command");
+                    cmdFeedback.Invoke("EqUtils", "You must be at least " + cmd.MinimumLevel + " to use this command");
                     return;
                 }
-                var result = cmd.Process(args);
+                var result = cmd.Process(cmdFeedback, args);
                 if (result != null)
-                    MyAPIGateway.Utilities.ShowMessage("EqUtils", result);
+                    cmdFeedback.Invoke(result);
             }
             catch (ArgumentException e)
             {
@@ -135,16 +140,20 @@ namespace Equinox.Utils.Command
                     Log(MyLogSeverity.Debug, "Unable to run {0} on a session of type {1}; it requires type {2}", args[0], MyAPIGateway.Session.SessionType(), cmd.AllowedSessionType);
                     return;
                 }
+                var cmdFeedback = new CommandFeedback((format, fields) =>
+                {
+                    var content = string.Format(format, fields);
+                    MyVisualScriptLogicProvider.SendChatMessage(content, "EqProcUtils", player.IdentityId);
+                });
                 if (!cmd.CanPromotionLevelUse(player.PromoteLevel))
                 {
+                    cmdFeedback.Invoke("You must be at least a {0} to use the {1} command.  You are are {2}", cmd.MinimumLevel, args[0], player.PromoteLevel);
                     Log(MyLogSeverity.Debug, "Player {0} ({1}) attempted to run {2} at level {3}", player.DisplayName, player.PromoteLevel, args[0], cmd.MinimumLevel);
                     return;
                 }
-                var result = cmd.Process(args);
+                var result = cmd.Process(cmdFeedback, args);
                 if (result != null)
-                {
-                    // TODO communicate result to sender.
-                }
+                    cmdFeedback.Invoke(result);
             }
             catch (ArgumentException e)
             {
