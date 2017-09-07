@@ -1,4 +1,4 @@
-﻿using Equinox.Utils.Noise.VRage;
+﻿using Equinox.Utils.Noise.Keen;
 using VRageMath;
 
 namespace Equinox.Utils.Noise
