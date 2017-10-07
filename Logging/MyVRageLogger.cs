@@ -17,7 +17,7 @@ namespace Equinox.Utils.Logging
             m_appVersion = new StringBuilder("1.0.0");
             m_lock = new FastResourceLock();
         }
-        
+
         protected override void Write(StringBuilder message)
         {
             using (m_lock.AcquireExclusiveUsing())
@@ -49,6 +49,18 @@ namespace Equinox.Utils.Logging
                 m_log.Close();
                 m_log = null;
             }
+        }
+
+        private const int WRITE_INTERVAL_TICKS = 30;
+        private int m_readyTicks;
+        public override void UpdateAfterSimulation()
+        {
+            base.UpdateAfterSimulation();
+            m_readyTicks++;
+            if (m_readyTicks <= WRITE_INTERVAL_TICKS) return;
+            using (m_lock.AcquireExclusiveUsing())
+                m_log.Flush();
+            m_readyTicks = 0;
         }
 
         public override void LoadConfiguration(MyObjectBuilder_ModSessionComponent config)

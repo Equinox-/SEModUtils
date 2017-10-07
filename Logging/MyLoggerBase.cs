@@ -19,8 +19,8 @@ namespace Equinox.Utils.Logging
 
         public MyLogSeverity LogLevel { get; set; } = (MyLogSeverity)0;
 
-        private static readonly Type[] SuppliesDep = { typeof(MyLoggerBase) };
-        public override IEnumerable<Type> SuppliedComponents => SuppliesDep;
+        public static readonly Type[] SuppliedDeps = { typeof(MyLoggerBase) };
+        public override IEnumerable<Type> SuppliedComponents => SuppliedDeps;
 
         protected abstract void Write(StringBuilder message);
 

@@ -59,7 +59,7 @@ namespace Equinox.Utils.Network
         private readonly MyTypedObjectPool m_packetPool = new MyTypedObjectPool(4, 1024 * 2);
         public const ushort MessageChannel = 57654;
 
-        private static readonly Type[] SuppliedDeps = new[] { typeof(MyNetworkComponent) };
+        public static readonly Type[] SuppliedDeps = new[] { typeof(MyNetworkComponent) };
         public override IEnumerable<Type> SuppliedComponents => SuppliedDeps;
 
         private class MyPacketInfo

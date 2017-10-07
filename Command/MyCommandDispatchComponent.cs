@@ -14,7 +14,7 @@ namespace Equinox.Utils.Command
     {
         private readonly Dictionary<string, MyCommand> m_commands = new Dictionary<string, MyCommand>();
 
-        private static readonly Type[] SuppliedDeps = { typeof(MyCommandDispatchComponent) };
+        public static readonly Type[] SuppliedDeps = { typeof(MyCommandDispatchComponent) };
         public override IEnumerable<Type> SuppliedComponents => SuppliedDeps;
 
         protected override void Attach()

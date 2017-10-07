@@ -28,7 +28,7 @@ namespace Equinox.Utils.Network
             DependsOn((MyNetworkComponent x) => Network = x);
         }
 
-        private static readonly Type[] SuppliedDeps =  { typeof(MyRPCComponent) };
+        public static readonly Type[] SuppliedDeps =  { typeof(MyRPCComponent) };
         public override IEnumerable<Type> SuppliedComponents => SuppliedDeps;
 
         private static void HandleRPCAction(MyRPCActionPacket packet)

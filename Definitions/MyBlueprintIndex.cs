@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Sandbox.Definitions;
 using VRage;
@@ -65,6 +66,41 @@ namespace Equinox.Utils
                 Result = result;
                 Ingredients = recipe;
             }
+        }
+
+        private readonly Dictionary<MyDefinitionId, double> m_rawResourcesFor = new Dictionary<MyDefinitionId, double>(MyDefinitionId.Comparer);
+
+        /// <summary>
+        /// Gets the amount of raw resources (ores) required to produce the given blueprint.
+        /// </summary>
+        /// <param name="id">definition ID</param>
+        /// <returns></returns>
+        public double GetRawResourcesFor(MyDefinitionId id)
+        {
+            double required;
+            if (m_rawResourcesFor.TryGetValue(id, out required))
+                return required;
+
+            required = 0;
+            m_rawResourcesFor[id] = required;
+            MyCubeBlockDefinition cubeDef = MyDefinitionManager.Static.GetCubeBlockDefinition(id);
+            if (cubeDef != null)
+            {
+                foreach (var kv in cubeDef.Components)
+                    required += kv.Count * GetRawResourcesFor(kv.Definition.Id);
+                m_rawResourcesFor[id] = required;
+                return required;
+            }
+            MyIndexedBlueprint index = GetTopLevelProducing(id);
+            if (index != null)
+            {
+                foreach (var kv in index.Ingredients)
+                    if (kv.Key.TypeId == typeof(MyObjectBuilder_Ore) || kv.Key.SubtypeName.IndexOf("ore", StringComparison.OrdinalIgnoreCase) >= 0)
+                        required += (double) kv.Value;
+                m_rawResourcesFor[id] = required;
+                return required;
+            }
+            return 0;
         }
 
 

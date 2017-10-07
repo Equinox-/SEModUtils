@@ -179,6 +179,56 @@ namespace Equinox.Utils.Session
             m_componentsToModify.Enqueue(new MyRemoveOrAdd(component, false, config));
         }
 
+        private readonly Dictionary<Type, MyModSessionComponentRegistry.CreateComponent> _factories = new Dictionary<Type, MyModSessionComponentRegistry.CreateComponent>();
+
+        public void RegisterFactory(IEnumerable<Type> suppliers, MyModSessionComponentRegistry.CreateComponent component)
+        {
+            foreach (var k in suppliers)
+                _factories.Add(k, component);
+        }
+
+        public bool UnregisterFactory(MyModSessionComponentRegistry.CreateComponent component)
+        {
+            var supplies = new HashSet<Type>();
+            foreach (var kv in _factories)
+                if (kv.Value == component)
+                    supplies.Add(kv.Key);
+            if (supplies.Count == 0)
+                return false;
+            foreach (var key in supplies)
+                _factories.Remove(key);
+            return true;
+        }
+
+        private void AddComponentLazy(MyModSessionComponent component, MyObjectBuilder_ModSessionComponent config)
+        {
+            foreach (var dep in component.Dependencies)
+            {
+                if (m_dependencySatisfyingComponents.ContainsKey(dep))
+                    continue;
+                MyModSessionComponentRegistry.CreateComponent factory;
+                if (!_factories.TryGetValue(dep, out factory))
+                    throw new ArgumentException("Can't add " + component.GetType() +
+                                                    " since we don't have dependency " + dep + " loaded or a factory for it");
+                AddComponentLazy(factory(), null);
+            }
+            // Safe to add to the end of the ordered list.
+            var item = new MyRuntimeSessionComponent(component, config);
+            foreach (var dep in component.Dependencies)
+            {
+                var depRes = m_dependencySatisfyingComponents[dep];
+                depRes.Dependents.Add(item);
+                item.Dependencies.Add(item);
+                item.Component.SatisfyDependency(depRes.Component);
+            }
+            Insert(item);
+            m_orderedComponentList.Add(item);
+            if (item.Config != null)
+                item.Component.LoadConfiguration(item.Config);
+            item.Component.Attached(this);
+            ComponentAttached?.Invoke(item.Component);
+        }
+
         private void ApplyComponentChanges()
         {
             MyRemoveOrAdd info;
@@ -188,29 +238,10 @@ namespace Equinox.Utils.Session
                 if (info.Remove)
                     Remove(component);
                 else
-                {
-                    foreach (var dep in component.Dependencies)
-                        if (!m_dependencySatisfyingComponents.ContainsKey(dep))
-                            throw new ArgumentException("Can't add " + component.GetType() + " since we don't have dependency " + dep + " loaded");
-                    // Safe to add to the end of the ordered list.
-                    var item = new MyRuntimeSessionComponent(component, info.Config);
-                    foreach (var dep in component.Dependencies)
-                    {
-                        var depRes = m_dependencySatisfyingComponents[dep];
-                        depRes.Dependents.Add(item);
-                        item.Dependencies.Add(item);
-                        item.Component.SatisfyDependency(depRes.Component);
-                    }
-                    Insert(item);
-                    m_orderedComponentList.Add(item);
-                    if (item.Config != null)
-                        item.Component.LoadConfiguration(item.Config);
-                    item.Component.Attached(this);
-                    ComponentAttached?.Invoke(item.Component);
-                }
+                    AddComponentLazy(component, info.Config);
             }
         }
-        
+
         public IEnumerable<T> GetAll<T>() where T : MyModSessionComponent
         {
             return m_componentDictionary.GetValueOrDefault(typeof(T), null)?.Cast<T>() ?? Enumerable.Empty<T>();
@@ -226,6 +257,26 @@ namespace Equinox.Utils.Session
         private void SortComponents()
         {
             ApplyComponentChanges();
+            // Fill using factories
+            var prevCount = 0;
+            while (true)
+            {
+                var entries = m_componentDictionary.Values.SelectMany(x => x).ToList();
+                if (entries.Count == prevCount)
+                    break;
+
+                foreach (var sat in entries)
+                    foreach (var dep in sat.Component.Dependencies)
+                    {
+                        if (m_dependencySatisfyingComponents.ContainsKey(dep))
+                            continue;
+                        MyModSessionComponentRegistry.CreateComponent factory;
+                        if (!_factories.TryGetValue(dep, out factory))
+                            throw new ArgumentException("Unable to resolve " + dep + " for " + sat.Component.GetType());
+                        Register(factory());
+                    }
+                prevCount = entries.Count;
+            }
             // Fill dependency information.
             foreach (var c in m_componentDictionary.Values.SelectMany(x => x))
             {
@@ -276,9 +327,9 @@ namespace Equinox.Utils.Session
                         foreach (var k in m_dagQueue)
                             FallbackLogger.Log(MyLogSeverity.Critical, "{0}x{1} has {2} unsolved dependencies.  Dependencies are {3}, Dependents are {4}", k.Component.GetType().Name,
                                 k.Component.GetType().GetHashCode(), k.UnsolvedDependencies,
-                                string.Join(", ", k.Dependencies.Select(x=>x.Component.GetType() + "x" +x.Component.GetHashCode())),
+                                string.Join(", ", k.Dependencies.Select(x => x.Component.GetType() + "x" + x.Component.GetHashCode())),
                                 string.Join(", ", k.Dependents.Select(x => x.Component.GetType() + "x" + x.Component.GetHashCode())));
-                    throw new ArgumentException("Dependency loop inside " + string.Join(", ", m_dagQueue.Select(x=>x.Component.GetType() + "x" + x.Component.GetHashCode())));
+                    throw new ArgumentException("Dependency loop inside " + string.Join(", ", m_dagQueue.Select(x => x.Component.GetType() + "x" + x.Component.GetHashCode())));
                 }
                 m_dagQueue.RemoveRange(m_dagQueue.Count - m_tmpQueue.Count, m_tmpQueue.Count);
                 // Sort temp queue, add to sorted list.
@@ -313,7 +364,7 @@ namespace Equinox.Utils.Session
             ApplyComponentChanges();
             foreach (var x in m_orderedComponentList)
                 x.Component.UpdateBeforeSimulation();
-            
+
             var ticksSinceChanged = 0;
             while (m_rrStopwatch.Elapsed < TolerableLag && ticksSinceChanged < m_orderedComponentList.Count)
             {
@@ -332,7 +383,7 @@ namespace Equinox.Utils.Session
             ApplyComponentChanges();
             foreach (var x in m_orderedComponentList)
                 x.Component.UpdateAfterSimulation();
-            
+
             var ticksSinceChanged = 0;
             while (m_rrStopwatch.Elapsed < TolerableLag && ticksSinceChanged < m_orderedComponentList.Count)
             {
