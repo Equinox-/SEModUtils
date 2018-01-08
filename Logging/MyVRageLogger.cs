@@ -5,14 +5,14 @@ using VRage.Utils;
 
 namespace Equinox.Utils.Logging
 {
-    public class MyVRageLogger : MyLoggerBase
+    public class VRageLogger : LoggerBase
     {
         private string m_filename;
         private readonly StringBuilder m_appVersion;
         private readonly FastResourceLock m_lock;
         private MyLog m_log;
 
-        public MyVRageLogger()
+        public VRageLogger()
         {
             m_appVersion = new StringBuilder("1.0.0");
             m_lock = new FastResourceLock();
@@ -63,10 +63,10 @@ namespace Equinox.Utils.Logging
             m_readyTicks = 0;
         }
 
-        public override void LoadConfiguration(MyObjectBuilder_ModSessionComponent config)
+        public override void LoadConfiguration(Ob_ModSessionComponent config)
         {
             base.LoadConfiguration(config);
-            var up = config as MyObjectBuilder_VRageLogger;
+            var up = config as Ob_VRageLogger;
             if (up == null)
             {
                 Log(MyLogSeverity.Critical, "Configuration type {0} doesn't match component type {1}", config.GetType(), GetType());
@@ -75,16 +75,16 @@ namespace Equinox.Utils.Logging
             m_filename = up.Filename;
         }
 
-        public override MyObjectBuilder_ModSessionComponent SaveConfiguration()
+        public override Ob_ModSessionComponent SaveConfiguration()
         {
-            var config = new MyObjectBuilder_VRageLogger();
+            var config = new Ob_VRageLogger();
             config.LogLevel = LogLevel;
             config.Filename = m_filename;
             return config;
         }
     }
 
-    public class MyObjectBuilder_VRageLogger : MyObjectBuilder_LoggerBase
+    public class Ob_VRageLogger : Ob_LoggerBase
     {
         public string Filename;
     }

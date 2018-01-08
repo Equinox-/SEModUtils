@@ -1,0 +1,267 @@
+﻿<#@ template debug="false" hostspecific="true" language="C#" #>
+<#@ assembly name="System.Core" #>
+<#@ assembly name="EnvDTE" #>
+<#@ import namespace="System.IO" #>
+<#@ import namespace="System.Linq" #>
+<#@ import namespace="System.Collections.Generic" #>
+<#@ import namespace="EnvDTE" #>
+<#@ output extension=".cs" #>
+<#
+    var dte = (this.Host as IServiceProvider).GetService(typeof(DTE)) as DTE;
+    var project = dte.Solution.FindProjectItem(this.Host.TemplateFile).ContainingProject;
+    
+    var simpleTypes = new Dictionary<string, string>()
+    {
+        {"System.Byte", "byte"},
+        {"System.SByte", "sbyte"},
+        {"System.Int16", "short"},
+        {"System.Int32", "int"},
+        {"System.Int64", "long"},
+        {"System.UInt16", "ushort"},
+        {"System.UInt32", "uint"},
+        {"System.UInt64", "ulong"},
+        {"System.Single", "float"},
+        {"System.Double", "double"},
+        {"System.String", "string"}
+    };
+    var simpleTypeName= new Dictionary<string,string>();
+    foreach (var kv in simpleTypes)
+        simpleTypeName[kv.Value] = kv.Key.Substring(7);
+
+    var blacklist= new HashSet<string>() { "VRageMath.CompressedPositionOrientation", "SpaceEngineers.Game.ModAPI.Ingame.LandingGearMode" };
+    var whitelist= new HashSet<string>() { "VRageMath" };
+    var fuzzywhitelist = new HashSet<string>() { };
+
+    var vrmEnums = new HashSet<CodeEnum>();
+    var vrmStructs = new HashSet<CodeStruct>();
+    var queue = new Queue<CodeElement>();
+    var namespaceQueue = new Queue<CodeNamespace>();
+    foreach (CodeElement e in project.CodeModel.CodeElements)
+        if (e.Kind == vsCMElement.vsCMElementNamespace) {
+            namespaceQueue.Enqueue((CodeNamespace) e);
+        }
+
+    while (namespaceQueue.Count > 0) {
+        CodeNamespace vrm = namespaceQueue.Dequeue();
+        foreach (CodeElement c in vrm.Members)
+            if (c.Kind == vsCMElement.vsCMElementNamespace)
+                namespaceQueue.Enqueue((CodeNamespace) c);
+            else if (whitelist.Contains(vrm.FullName) || fuzzywhitelist.Any(x=>vrm.FullName.Contains(x)))
+                queue.Enqueue(c);
+    }
+    foreach (var listed in whitelist) {
+        try{
+            var type = project.CodeModel.CodeTypeFromFullName(listed) as CodeElement;
+            if (type != null)
+                queue.Enqueue(type);
+        } catch { }
+    }
+
+    while (queue.Count > 0) {
+        var c = queue.Dequeue();
+        if (c.IsCodeType) {
+            foreach (CodeElement child in ((CodeType)c).Members)
+                queue.Enqueue(child);
+        }
+
+        if (c.Kind == vsCMElement.vsCMElementEnum) {
+            vrmEnums.Add((CodeEnum) c);
+            continue;
+        } else if (c.Kind == vsCMElement.vsCMElementStruct && !c.FullName.Contains("<") && !blacklist.Contains(c.FullName)) {
+            CodeStruct css = (CodeStruct) c;
+            CodeElement parent = (CodeElement) css.Parent;
+            if (parent.Kind != vsCMElement.vsCMElementNamespace) continue;
+            // Validate we can IO it.
+		    foreach (CodeElement child in css.Members)
+			    if (child.Kind == vsCMElement.vsCMElementVariable) {
+				    var svar = (CodeVariable) child;
+				    if (svar.IsShared || svar.IsConstant) continue;
+                        vrmStructs.Add(css);
+                        break;
+			    }
+        }
+    }
+
+    CodeType memStream = project.CodeModel.CodeTypeFromFullName("Equinox.Utils.Stream.MemoryStream");
+    HashSet<string> writeFun = new HashSet<string>();
+    HashSet<string> readFun = new HashSet<string>();
+
+    foreach (CodeElement entry in memStream.Members) {
+        if (entry.Kind == vsCMElement.vsCMElementFunction) {
+            CodeFunction fun = (CodeFunction) entry;
+            if (fun.Parameters.Count != 1) continue;
+            CodeParameter param = (CodeParameter) fun.Parameters.Item(1);
+            if (param.Type.AsFullName.Contains("[]")) continue;
+            string type = param.Type.AsFullName;
+            string ntype;
+            if (simpleTypes.TryGetValue(type, out ntype))
+                type = ntype;
+            if (fun.Name.Equals("Write"))
+                writeFun.Add(type);
+            else if (fun.Name.Equals("Read"))
+                readFun.Add(type);
+        }
+    }
+#>
+using Equinox.Utils.Stream;
+namespace Equinox.Utils.Stream {
+    public static class MemoryStreamExtensions {
+<#
+    foreach (CodeEnum vre in vrmEnums) {
+        // Compute max value.
+        int count = 0;
+        foreach (CodeElement child in vre.Members) 
+            if (child.Kind == vsCMElement.vsCMElementVariable) {
+                CodeVariable cv = (CodeVariable) child;
+                if (!cv.IsConstant) continue;
+                count++;
+            }
+        int max = vre.Name.Contains("Flag") ? (1<<(count-1)) : count - 1;
+        string stor = "System.UInt32";
+        if (max <= byte.MaxValue) {
+            stor = "System.Byte";
+        } else if (max <= ushort.MaxValue) {
+            stor = "System.UInt16";
+        }
+        string ntype;
+        if (simpleTypes.TryGetValue(stor, out ntype))
+            stor = ntype;
+        string type = vre.FullName;
+        if (writeFun.Add(type)) {
+#>
+        public static void Write(this MemoryStream stream, ref <#=type#> val)
+		{
+            var tmp = (<#=stor#>) val;
+            stream.Write(ref tmp);
+        }
+<#
+        }
+        if (readFun.Add(type)) {
+#>
+        public static void Read(this MemoryStream stream, ref <#=type#> val)
+		{
+            var tmp = default(<#=stor#>);
+            stream.Read(ref tmp);
+            val = (<#=type#>) tmp;
+        }
+<#
+        }
+    }
+
+	var tmpSet = new HashSet<string>();
+	foreach (CodeStruct stru in vrmStructs) {
+		tmpSet.Clear();
+		foreach (CodeElement child in stru.Members)
+			if (child.Kind == vsCMElement.vsCMElementVariable) {
+				var svar = (CodeVariable) child;
+				if (svar.IsShared || svar.IsConstant) continue;
+				tmpSet.Add(child.Name);
+			}
+		string type = stru.FullName;
+		if (writeFun.Add(type)) {
+#>
+        public static void Write(this MemoryStream stream, ref <#=type#> val)
+		{
+<#
+			foreach (var field in tmpSet) {
+#>
+			stream.Write(ref val.<#=field#>);
+<#
+			}
+#>
+        }
+<#
+        }
+        if (readFun.Add(type)) {
+#>
+        public static void Read(this MemoryStream stream, ref <#=type#> val)
+		{
+<#
+			foreach (var field in tmpSet) {
+#>
+			stream.Read(ref val.<#=field#>);
+<#
+			}
+#>
+        }
+<#  
+        }
+	}
+    foreach (string type in writeFun) {
+#>
+        public static void Write(this MemoryStream stream, <#=type#> val)
+		{
+            stream.Write(ref val);
+        }
+<#
+    }
+    foreach (string type in readFun) {
+        string funName = type;
+        string tmpName;
+        if (simpleTypeName.TryGetValue(type, out tmpName))
+            funName = tmpName;
+        funName = funName.Substring(funName.LastIndexOf('.')+1);
+        int idx = type.IndexOf("Base");
+        if (idx >= 0) {
+            int baseN = idx + 5;
+            while (Char.IsNumber(type[baseN]))
+                baseN++;
+            funName = type.Substring(idx, baseN-idx) + funName;
+        }
+#>
+        public static <#=type#> Read<#=funName#>(this MemoryStream stream)
+		{
+            var val = default(<#=type#>);
+            stream.Read(ref val);
+            return val;
+        }
+<#
+    }
+#>
+    }
+}
+
+public static class SerializerExtensions {
+<#
+        var readWrite = new HashSet<string>(readFun);
+        readWrite.RemoveWhere(x=>!writeFun.Contains(x));
+        // type to classname
+        var impls = new Dictionary<string, string>();
+        foreach (var type in readWrite) {
+            string funName = type.Substring(type.LastIndexOf('.')+1);
+            int idx = type.IndexOf("Base");
+            if (idx >= 0) {
+                int baseN = idx + 5;
+                while (Char.IsNumber(type[baseN]))
+                    baseN++;
+                funName = type.Substring(idx, baseN-idx) + funName;
+            }
+            var implName = Char.ToUpper(funName[0]) + funName.Substring(1) + "Serializer";
+#>
+    public class <#=implName#> : Serializer<<#=type#>> {
+        public static readonly <#=implName#> Instance = new <#=implName#>();
+        public override void Read(ref <#=type#> val, MemoryStream stream)
+		{
+            stream.Read(ref val);
+        }
+        public override void Write(ref <#=type#> val, MemoryStream stream)
+		{
+            stream.Write(ref val);
+        }
+    }
+<#
+            impls[type] = implName;
+        }
+#>
+
+    public static void RegisterBuiltinTypes()
+	{
+<#
+        foreach (var kv in impls) {
+#>
+            SerializerRegistry.RegisterSerializer(<#=kv.Value#>.Instance);
+<#
+        }
+#>
+    }
+}

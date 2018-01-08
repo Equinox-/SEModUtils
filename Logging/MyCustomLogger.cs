@@ -8,7 +8,7 @@ using VRage.Utils;
 
 namespace Equinox.Utils.Logging
 {
-    public class MyCustomLogger : MyLoggerBase
+    public class CustomLogger : LoggerBase
     {
         public const string DefaultLogFile = "ProceduralWorld.log";
 
@@ -23,7 +23,7 @@ namespace Equinox.Utils.Logging
         private static readonly TimeSpan WriteIntervalTime = new TimeSpan(
             0, 0, 1);
 
-        public MyCustomLogger()
+        public CustomLogger()
         {
             m_file = DefaultLogFile;
             m_writer = null;
@@ -69,8 +69,8 @@ namespace Equinox.Utils.Logging
                                 if (m_writer == null)
                                 {
                                     m_writer = MyAPIGateway.Session.IsDecider() ? 
-                                        MyAPIGateway.Utilities.WriteFileInWorldStorage(m_file, typeof(MyCustomLogger)) : 
-                                        MyAPIGateway.Utilities.WriteFileInLocalStorage(m_file, typeof(MyCustomLogger));
+                                        MyAPIGateway.Utilities.WriteFileInWorldStorage(m_file, typeof(CustomLogger)) : 
+                                        MyAPIGateway.Utilities.WriteFileInLocalStorage(m_file, typeof(CustomLogger));
                                     MyLog.Default.WriteLine("Opened log for ProceduralWorld");
                                     MyLog.Default.Flush();
                                 }
@@ -146,10 +146,10 @@ namespace Equinox.Utils.Logging
                 Flush();
         }
 
-        public override void LoadConfiguration(MyObjectBuilder_ModSessionComponent config)
+        public override void LoadConfiguration(Ob_ModSessionComponent config)
         {
             base.LoadConfiguration(config);
-            var up = config as MyObjectBuilder_CustomLogger;
+            var up = config as Ob_CustomLogger;
             if (up == null)
             {
                 Log(MyLogSeverity.Critical, "Configuration type {0} doesn't match component type {1}", config.GetType(), GetType());
@@ -158,17 +158,17 @@ namespace Equinox.Utils.Logging
             m_file = up.Filename;
         }
 
-        public override MyObjectBuilder_ModSessionComponent SaveConfiguration()
+        public override Ob_ModSessionComponent SaveConfiguration()
         {
-            var config = new MyObjectBuilder_CustomLogger();
+            var config = new Ob_CustomLogger();
             config.LogLevel = LogLevel;
             config.Filename = m_file;
             return config;
         }
     }
 
-    public class MyObjectBuilder_CustomLogger : MyObjectBuilder_LoggerBase
+    public class Ob_CustomLogger : Ob_LoggerBase
     {
-        public string Filename = MyCustomLogger.DefaultLogFile;
+        public string Filename = CustomLogger.DefaultLogFile;
     }
 }

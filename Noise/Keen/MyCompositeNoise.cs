@@ -17,7 +17,7 @@ namespace Equinox.Utils.Noise.Keen
             m_amplitudeScales = new float[m_numNoises];
             m_normalizationFactor = 2.0f - 1.0f / (float)Math.Pow(2, m_numNoises - 1);
 
-            var random = new Random(seed);
+            var random = new System.Random(seed);
             float frequency = startFrequency;
             for (int i = 0; i < m_numNoises; ++i)
             {

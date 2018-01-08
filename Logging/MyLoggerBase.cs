@@ -7,19 +7,19 @@ using VRage.Utils;
 
 namespace Equinox.Utils.Logging
 {
-    public class MyObjectBuilder_LoggerBase : MyObjectBuilder_ModSessionComponent
+    public class Ob_LoggerBase : Ob_ModSessionComponent
     {
         public MyLogSeverity LogLevel = MyLogSeverity.Debug;
     }
 
-    public abstract class MyLoggerBase : MyModSessionComponent, IMyLoggingBase
+    public abstract class LoggerBase : ModSessionComponent, ILoggingBase
     {
         private readonly StringBuilder m_messageBuilder = new StringBuilder();
         private readonly StringBuilder m_indentBuilder = new StringBuilder();
 
         public MyLogSeverity LogLevel { get; set; } = (MyLogSeverity)0;
 
-        public static readonly Type[] SuppliedDeps = { typeof(MyLoggerBase) };
+        public static readonly Type[] SuppliedDeps = { typeof(LoggerBase) };
         public override IEnumerable<Type> SuppliedComponents => SuppliedDeps;
 
         protected abstract void Write(StringBuilder message);
@@ -74,11 +74,11 @@ namespace Equinox.Utils.Logging
             Write(message);
         }
         
-        public override void LoadConfiguration(MyObjectBuilder_ModSessionComponent config)
+        public override void LoadConfiguration(Ob_ModSessionComponent config)
         {
             if (config == null)
                 return;
-            var up = config as MyObjectBuilder_LoggerBase;
+            var up = config as Ob_LoggerBase;
             if (up == null)
             {
                 Log(MyLogSeverity.Critical, "Configuration type {0} doesn't match component type {1}", config.GetType(), GetType());

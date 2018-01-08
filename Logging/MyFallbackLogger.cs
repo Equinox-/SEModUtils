@@ -4,18 +4,18 @@ using VRage.Utils;
 
 namespace Equinox.Utils.Logging
 {
-    public class MyFallbackLogger : IMyLoggingBase
+    public class FallbackLogger : ILoggingBase
     {
-        private readonly MyModSessionManager m_manager;
+        private readonly ModSessionManager m_manager;
 
-        public MyFallbackLogger(MyModSessionManager manager)
+        public FallbackLogger(ModSessionManager manager)
         {
             m_manager = manager;
         }
 
         public void IncreaseIndent()
         {
-            var logger = m_manager.GetDependencyProvider<MyLoggerBase>();
+            var logger = m_manager.GetDependencyProvider<LoggerBase>();
             if (logger != null && logger.IsAttached)
                 logger.IncreaseIndent();
             else
@@ -24,7 +24,7 @@ namespace Equinox.Utils.Logging
 
         public void DecreaseIndent()
         {
-            var logger = m_manager.GetDependencyProvider<MyLoggerBase>();
+            var logger = m_manager.GetDependencyProvider<LoggerBase>();
             if (logger != null && logger.IsAttached)
                 logger.DecreaseIndent();
             else
@@ -35,7 +35,7 @@ namespace Equinox.Utils.Logging
 
         public void Log(MyLogSeverity severity, string format, params object[] args)
         {
-            var logger = m_manager.GetDependencyProvider<MyLoggerBase>();
+            var logger = m_manager.GetDependencyProvider<LoggerBase>();
             if (logger != null && logger.IsAttached)
                 logger.Log(severity, format, args);
             else
@@ -50,7 +50,7 @@ namespace Equinox.Utils.Logging
 
         public void Log(MyLogSeverity severity, StringBuilder message)
         {
-            var logger = m_manager.GetDependencyProvider<MyLoggerBase>();
+            var logger = m_manager.GetDependencyProvider<LoggerBase>();
             if (logger != null && logger.IsAttached)
                 logger.Log(severity, message);
             else
@@ -65,7 +65,7 @@ namespace Equinox.Utils.Logging
 
         public void Log(MyLogSeverity severity, string prefix, string format, params object[] args)
         {
-            var logger = m_manager.GetDependencyProvider<MyLoggerBase>();
+            var logger = m_manager.GetDependencyProvider<LoggerBase>();
             if (logger != null && logger.IsAttached)
                 logger.Log(severity, prefix, format, args);
             else
@@ -80,7 +80,7 @@ namespace Equinox.Utils.Logging
 
         public void Log(MyLogSeverity severity, string prefix, StringBuilder message)
         {
-            var logger = m_manager.GetDependencyProvider<MyLoggerBase>();
+            var logger = m_manager.GetDependencyProvider<LoggerBase>();
             if (logger != null && logger.IsAttached)
                 logger.Log(severity, prefix, message);
             else
