@@ -1,9 +1,10 @@
-﻿// ReSharper disable All
-
+﻿ 
+ 
+// ReSharper disable All
 using System;
 using Equinox.Utils.Stream;
-
-namespace Equinox.Utils.Network
+using Equinox.Utils.Network;
+namespace Equinox.Utils
 {
     public class NetworkISyncByReferenceImpl : SyncByReference, Equinox.Utils.Network.ISyncByReference
     {
@@ -26,12 +27,14 @@ namespace Equinox.Utils.Network
             }
         }
     }
-
+}
+namespace Equinox.Utils.Network
+{
     public static class SyncObjectGen
     {
         public static void RegisterAll()
         {
-            SyncObjectFactory.Register<NetworkISyncByReferenceImpl>(typeof(Equinox.Utils.Network.ISyncByReference));
+            SyncObjectFactory.Register<Equinox.Utils.NetworkISyncByReferenceImpl>(typeof(Equinox.Utils.Network.ISyncByReference));
         }
     }
 }

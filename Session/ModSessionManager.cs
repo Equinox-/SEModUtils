@@ -417,9 +417,9 @@ namespace Equinox.Utils.Session
             m_orderedComponentList.Clear();
         }
 
-        public Ob_SessionManager SaveConfiguration()
+        public MyObjectBuilder_SessionManager SaveConfiguration()
         {
-            var res = new Ob_SessionManager
+            var res = new MyObjectBuilder_SessionManager
             {
                 TolerableLag = TolerableLag,
                 SessionComponents = new List<Ob_ModSessionComponent>()
@@ -430,7 +430,7 @@ namespace Equinox.Utils.Session
             return res;
         }
 
-        public void AppendConfiguration(Ob_SessionManager config)
+        public void AppendConfiguration(MyObjectBuilder_SessionManager config)
         {
             if (config.SessionComponents == null) return;
             TolerableLag = config.TolerableLag;
@@ -446,7 +446,7 @@ namespace Equinox.Utils.Session
 
     [Serializable]
     [ProtoContract]
-    public partial class Ob_SessionManager
+    public partial class MyObjectBuilder_SessionManager
     {
         // This is declared in MyModSessionComponentRegistryGen so it can be auto-generated.
         // public List<MyObjectBuilder_ModSessionComponent> SessionComponents = new List<MyObjectBuilder_ModSessionComponent>();
